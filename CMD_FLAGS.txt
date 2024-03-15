@@ -1,3 +1,4 @@
 # Only used by the one-click installer.
 # Example:
 # --listen --api
+--api --extensions super_latent_booga --auto-launch --model bartowski_mistral-7b-v0.1-layla-v4-exl2_8_0
