@@ -1,7 +1,7 @@
 /cache
 /characters
 /css
-/extensions
+
 /grammars
 /installer_files
 /logs
@@ -13,6 +13,7 @@
 /softprompts
 /torch-dumps
 /training/datasets
+/00_my_scripts/chatbot.log
 
 /CMD_FLAGS.txt
 /img_bot*
@@ -47,4 +48,8 @@ wandb
 /docker-compose.yaml
 /docker-compose.yml
 /Dockerfile
-.env
+*.env
+
+auth_token.txt
+*.wav
+*chat_log.json

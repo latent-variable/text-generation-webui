@@ -28,6 +28,87 @@ transformers==4.41.*
 tqdm
 wandb
 
+# My additions 
+speechbrain
+dash 
+jupyter
+opencv-python 
+pydub
+librosa
+setuptools>=65
+nltk
+openai-whisper
+pyannote.audio==3.1.1
+ruamel.yaml==0.17.28
+noisereduce
+matplotlib
+scikit-learn
+pymap3d
+pyinstaller
+pymongo
+h5py
+webrtcvad
+SpeechRecognition
+ffmpeg-python
+mermaid-python
+whisperX @ git+https://github.com/latent-variable/whisperX.git
+faster-whisper @ git+https://github.com/SYSTRAN/faster-whisper.git
+guidance
+schedule
+tabpy
+markdown
+plotly
+spyder
+txtai
+diffusers
+langchain
+langchain-community
+# Confluence
+atlassian-python-api
+lxml
+markdownify
+pytesseract  
+reportlab 
+svglib
+reportlab[renderPM]
+reportlab[pycairo]
+pdf2image
+
+# Additional requirements
+folium
+pyqt5
+pyqt5designer
+pyqtwebengine
+flask
+geopandas
+streamlit
+pygame
+
+# My SuperBoogaV3
+beautifulsoup4==4.12.2
+chromadb==0.4.15
+lxml
+optuna
+pandas==2.0.3
+posthog==2.4.2
+sentence_transformers==2.2.2
+spacy
+pytextrank
+num2words
+
+
+# LLaVA
+timm==0.6.13
+einops-exts==0.0.4
+fastapi
+uvicorn
+httpx
+gradio_client
+markdown2[all]
+pydantic
+shortuuid
+tokenizers
+
 # API
 SpeechRecognition==3.10.0
 flask_cloudflared==0.0.14

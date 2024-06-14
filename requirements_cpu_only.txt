@@ -25,6 +25,18 @@ transformers==4.41.*
 tqdm
 wandb
 
+# My SuperBoogaV3
+beautifulsoup4==4.12.2
+chromadb==0.4.15
+lxml
+optuna
+pandas==2.0.3
+posthog==2.4.2
+sentence_transformers==2.2.2
+spacy
+pytextrank
+num2words
+
 # API
 SpeechRecognition==3.10.0
 flask_cloudflared==0.0.14
