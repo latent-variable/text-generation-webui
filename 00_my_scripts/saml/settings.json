@@ -1,0 +1,30 @@
+{
+    "strict": true,
+    "debug": true,
+    "sp": {
+        "entityId": "https://your-service-provider-entity-id",
+        "assertionConsumerService": {
+            "url": "http://localhost:8000/auth/",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+        },
+        "singleLogoutService": {
+            "url": "http://localhost:8000/logout/",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "NameIDFormat": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+        "x509cert": "path_to_your_sp_cert",
+        "privateKey": "path_to_your_sp_private_key"
+    },
+    "idp": {
+        "entityId": "https://idp.dod.gov/sso",
+        "singleSignOnService": {
+            "url": "https://idp.dod.gov/sso/saml",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "singleLogoutService": {
+            "url": "https://idp.dod.gov/sso/saml/logout",
+            "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+        },
+        "x509cert": "path_to_dod_idp_cert"
+    }
+}

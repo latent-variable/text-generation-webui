@@ -63,6 +63,9 @@ txtai
 diffusers
 langchain
 langchain-community
+python3-saml
+
+
 # Confluence
 atlassian-python-api
 lxml

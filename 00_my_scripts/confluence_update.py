@@ -31,6 +31,7 @@ def load_docs_from_confluence():
             max_pages=10,
             keep_markdown_format=False,
             include_attachments=True, # uncomment to include png, jpeg, ..
+            confluence_kwargs = {'verify_ssl': False}
         )
         
         docs = loader.load()
