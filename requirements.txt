@@ -76,6 +76,7 @@ svglib
 reportlab[renderPM]
 reportlab[pycairo]
 pdf2image
+docx2txt
 
 # Additional requirements
 folium

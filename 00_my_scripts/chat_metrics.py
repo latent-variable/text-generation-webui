@@ -26,13 +26,9 @@ def load_logs(log_file = 'chat_log.json'):
     # Replace user_ip values with unique numbers
     df['user_ip'] = df['user_ip'].map(ip_to_number)
 
-
-
     # Specify the exact format of the timestamp to improve parsing
     timestamp_format = '%Y-%m-%d %H:%M:%S,%f'
     df['timestamp'] = pd.to_datetime(df['timestamp'], format=timestamp_format)
-
-
 
     return df
 

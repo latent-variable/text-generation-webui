@@ -1,4 +1,9 @@
 {
     "title": "Hey Chatbot",
-    "disclaimer": "Chat service for insights"
+    "disclaimer": "Chat service for insights",
+    "logo": "logo.jpg",
+    "mongo_host": "None",
+    "confluence_url": "https://test-llm.atlassian.net/wiki",
+    "confluence_spaces": ["test", "SD"],
+    "system_prompt": "You are Bob a helpful chatbot developed by Alice. You task is to help with pokemon related questions"
 }

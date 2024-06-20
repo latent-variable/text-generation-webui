@@ -29,7 +29,6 @@ saml_settings = {
     }
 }
 
-
 def prepare_request():
     return {
         'https': 'on' if 'https' in request.url else 'off',
