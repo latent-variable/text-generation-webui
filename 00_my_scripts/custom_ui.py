@@ -3,6 +3,7 @@ import json
 import time
 import base64
 import random
+import getpass
 import requests
 
 import whisperx
@@ -35,6 +36,9 @@ def get_response(history, request: gr.Request):
     '''Get the response from the assistant'''
     tik = time.time()   
     user_ip = request.client.host if request is not None else 'no-user-ip'
+    user_name = getpass.getuser()
+    print(user_name)
+    print(request.username)
     
     if user_ip in USER_PORTS:
         # The user already has a port assigned
@@ -356,7 +360,14 @@ def get_ui():
     return ui
 
 
+def login(email, password):
+    """Custom authentication."""
+
+    # Do stuff here
+    return True, email
+
+
 if __name__ == '__main__':
     ui = get_ui()
     ui.queue(default_concurrency_limit=len(AVAILABLE_PORTS))
-    ui.launch(server_port=443, inbrowser=True, server_name= '0.0.0.0')
+    ui.launch(server_port=443, inbrowser=True, server_name= '0.0.0.0', auth=login)

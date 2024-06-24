@@ -1,6 +1,6 @@
 {
-    "title": "Hey Chatbot",
-    "disclaimer": "Chat service for insights",
+    "title": "Chatbot",
+    "disclaimer": "Chat service",
     "logo": "logo.jpg",
     "mongo_host": "None",
     "confluence_url": "https://test-llm.atlassian.net/wiki",

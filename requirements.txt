@@ -88,6 +88,7 @@ geopandas
 streamlit
 pygame
 
+
 # My SuperBoogaV3
 beautifulsoup4==4.12.2
 chromadb==0.4.15
@@ -100,6 +101,10 @@ spacy
 pytextrank
 num2words
 
+# Authentication 
+PyKCS11
+pywin32
+pyscard
 
 # LLaVA
 timm==0.6.13
