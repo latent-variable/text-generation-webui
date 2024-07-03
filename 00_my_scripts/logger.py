@@ -62,7 +62,6 @@ def add_new_log_message_to_mongodb(log_entry):
       MONGO_COLLECTION.append(log_entry)
 
 def logger(log_entry, level='info'):
-    global logging
     if level == 'info':
         logging.info(log_entry)
     if level == 'warning':

@@ -70,9 +70,11 @@ def get_response(history, request: gr.Request):
         user_promt, metas = add_relavant_docs_to_user_prompt(user_promt, rag_docs)
         RAG_PARAMS[user_ip]["rag_context"] = user_promt  # Update rag_context with user_prompt
 
-    if user_ip not in CHAT_HISTORY: # Initialize the chat with the system prompt
-        CHAT_HISTORY[user_ip].append({"role": "system", "content": PROPERTIES['system_prompt']})
-    CHAT_HISTORY[user_ip].append({"role": "user", "content": user_promt})
+    if user_ip not in CHAT_HISTORY or len(CHAT_HISTORY) == 0: # Initialize the chat with the system prompt
+        CHAT_HISTORY[user_ip].append({"role": "user", "content": PROPERTIES['system_prompt'] +"\nPROMPT:" +user_promt})
+    else:    
+        CHAT_HISTORY[user_ip].append({"role": "user", "content": user_promt})
+        
     data = json.dumps({
     "messages": CHAT_HISTORY[user_ip],
     "mode": "instruct",
@@ -98,11 +100,7 @@ def get_response(history, request: gr.Request):
                 parsed_data = json.loads(data_json)
                 # print(parsed_data)  # Now 'parsed_data' is a Python dictionary
                 if 'usage' in parsed_data:
-                    print(parsed_data['usage'])
                     token_used = parsed_data['usage']['total_tokens']
-                    print(f"Token used: {token_used}")
-                
-                    
                 
                 chunk = parsed_data['choices'][0]['delta']['content']
                 assistant_message += chunk
