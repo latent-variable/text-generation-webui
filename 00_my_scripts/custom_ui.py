@@ -208,10 +208,8 @@ def load_chat_history(request: gr.Request):
         chat_history = HISTORY[user_ip]
         logger({'event':'action', 'user_ip': user_ip, 'action':'load-chat-history'})
         
-    
     # Reset the RAG parameters 
-    if user_ip not in RAG_PARAMS:
-        RAG_PARAMS[user_ip] = {"use_rag": False, "rag_n_results": 3, "rag_context":""}
+    RAG_PARAMS[user_ip] = {"use_rag": False, "rag_n_results": 3, "rag_context":""}
 
     return chat_history, RAG_PARAMS[user_ip]["use_rag"], RAG_PARAMS[user_ip]["rag_n_results"]
 
