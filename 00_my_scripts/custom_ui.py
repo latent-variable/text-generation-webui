@@ -37,8 +37,6 @@ def get_response(history, request: gr.Request):
     tik = time.time()   
     user_ip = request.client.host if request is not None else 'no-user-ip'
     user_name = getpass.getuser()
-    print(user_name)
-    print(request.username)
     
     if user_ip in USER_PORTS:
         # The user already has a port assigned
@@ -56,8 +54,6 @@ def get_response(history, request: gr.Request):
         
     # Set the port status to in use
     PORT_STATUS[port] = True
-
-    print(f"User IP: {user_ip}, Port: {port}")
     # Prepare the request details
     url = f"http://127.0.0.1:{port}/v1/chat/completions"
     headers = {
@@ -82,7 +78,7 @@ def get_response(history, request: gr.Request):
     "mode": "instruct",
     "stream": True,
     # "instruction_template": "Mistral",
-    "skip_special_tokens": False,
+    # "skip_special_tokens": False,
     })
 
     response = requests.post(url, headers=headers, data=data, stream=True)
@@ -102,7 +98,11 @@ def get_response(history, request: gr.Request):
                 parsed_data = json.loads(data_json)
                 # print(parsed_data)  # Now 'parsed_data' is a Python dictionary
                 if 'usage' in parsed_data:
+                    print(parsed_data['usage'])
                     token_used = parsed_data['usage']['total_tokens']
+                    print(f"Token used: {token_used}")
+                
+                    
                 
                 chunk = parsed_data['choices'][0]['delta']['content']
                 assistant_message += chunk
@@ -120,7 +120,7 @@ def get_response(history, request: gr.Request):
         else:
             final_message = "⚠️ This response is based entirely on my training data and may not be reliable."
      
-        history[-1][1] +=  f'\n\n<sub><sup>{final_message} {token_message} </sup></sub>'
+        history[-1][1] +=  f'\n\n<sub>{final_message}</sup> <sub><sub>{token_message} </sup></sub>'
         yield history
 
     # Reset the user interuppt flag 
@@ -261,7 +261,7 @@ def submit_feedback(user_name, text_feedback, request: gr.Request):
         return None, None
     
     user_ip = request.client.host if request is not None else 'no-user-ip'
-    logger({'event':'feedback', 'user_ip': user_ip, 'user_name': user_name, 'feedback': text_feedback})
+    logger({'event':'feedback', 'user_ip': user_ip, 'user_name': user_name, 'feedback': text_feedback, 'chat_history': CHAT_HISTORY[user_ip]})
 
     gr.Info("Thank you for the feedback!")
     return None, None
@@ -370,4 +370,4 @@ def login(email, password):
 if __name__ == '__main__':
     ui = get_ui()
     ui.queue(default_concurrency_limit=len(AVAILABLE_PORTS))
-    ui.launch(server_port=443, inbrowser=True, server_name= '0.0.0.0', auth=login)
+    ui.launch(server_port=PROPERTIES['port'], inbrowser=True, server_name= '0.0.0.0')

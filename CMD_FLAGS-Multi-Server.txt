@@ -1,4 +1,4 @@
---api --api-port 4000 --listen --listen-port 7860 --gpu-split 0,24 --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0  --extensions superboogav3  --auto-launch
---api --api-port 4001  --gpu-split 0,24 --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0 --nowebui
+--api --api-port 4000 --listen --listen-port 7860 --gpu-split 24,0 --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0  --extensions superboogav3  --auto-launch
+--api --api-port 4001  --gpu-split 24,0 --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0 --nowebui
 #--api --api-port 4002  --gpu-split 24,0 --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0 --nowebui
 #--api --api-port 3000  --gpu-split 24,0 --model bartowski_starcoder2-3b-exl2_8_0 --nowebui

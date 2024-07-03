@@ -28,7 +28,7 @@ class JsonFormatter(logging.Formatter):
             }
         return json.dumps(log_record)
 
-def get_logger(file_name = 'chat_log.json'):
+def initialize_logger(file_name = '../chat_log.json'):
     # Set up a file handler to append to the JSON file
     file_handler = logging.FileHandler(file_name, mode='a')
     file_handler.setFormatter(JsonFormatter())
@@ -38,7 +38,6 @@ def get_logger(file_name = 'chat_log.json'):
         level=logging.INFO,  # Set the root logger level
         handlers=[file_handler]
     )
-    
 
 def get_chatbot_collection():
     collection = None 
@@ -55,15 +54,17 @@ def get_chatbot_collection():
         
     return  collection
 
+initialize_logger()
 MONGO_COLLECTION = get_chatbot_collection()
 
 def add_new_log_message_to_mongodb(log_entry):
-   if MONGO_COLLECTION:
+   if MONGO_COLLECTION is not None:
       MONGO_COLLECTION.append(log_entry)
 
 def logger(log_entry, level='info'):
-   if level == 'info':
-      logging.info(log_entry)
-   if level == 'warning':
-      logging.warning(log_entry)
-   add_new_log_message_to_mongodb(log_entry)
+    global logging
+    if level == 'info':
+        logging.info(log_entry)
+    if level == 'warning':
+        logging.warning(log_entry)
+    add_new_log_message_to_mongodb(log_entry)
