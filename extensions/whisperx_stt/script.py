@@ -3,7 +3,6 @@ import gc
 import wave
 import time
 import torch
-import librosa
 import whisperx
 import threading
 import numpy as np
@@ -11,7 +10,7 @@ import gradio as gr
 import noisereduce as nr
 import soundfile as sf
 from datetime import timedelta
-import speech_recognition as sr
+
 
 # from modules import shared
 

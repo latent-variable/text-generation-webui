@@ -22,6 +22,8 @@
 /notification.mp3
 /settings*.json
 /settings*.yaml
+/pre-prompt.json
+/transcriptions.txt
 
 .chroma
 .DS_Store

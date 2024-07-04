@@ -1,15 +1,18 @@
+import os
+import json
 import time
+import datetime
 import threading
+import webrtcvad
 import numpy as np
 import gradio as gr
 import noisereduce as nr
 import soundfile as sf
-import webrtcvad
+
 from collections import deque
 from pydub import AudioSegment
 import whisperx
 from concurrent.futures import ThreadPoolExecutor
-
 
 # Create a ThreadPoolExecutor with 16 threads to transcribe the audio in parallel
 executor = ThreadPoolExecutor(max_workers=16)
@@ -37,9 +40,33 @@ max_duration = 10
 # call counter
 counter = 0
 
-# Create a transcriber
-transcriber_large = whisperx.load_model('large-v3', device='cuda', language='en')
-transcriber_small= whisperx.load_model("base.en", device='cuda', language='en')
+# Add a new state variable for pre-prompt words
+pre_prompt_words = []
+pre_prompt_lock = threading.Lock()
+
+# File to store pre-prompt words
+pre_prompt_file = 'pre-prompt.json'
+
+
+def save_pre_prompt_to_file():
+    global pre_prompt_words, pre_prompt_lock, pre_prompt_file
+    with pre_prompt_lock:
+        with open(pre_prompt_file, 'w') as file:
+            json.dump(pre_prompt_words, file)
+
+def load_pre_prompt_from_file():
+    global pre_prompt_words, pre_prompt_lock, pre_prompt_file
+    if os.path.exists(pre_prompt_file):
+        with pre_prompt_lock:
+            with open(pre_prompt_file, 'r') as file:
+                pre_prompt_words = json.load(file)
+
+# Load pre-prompt words when the script starts
+load_pre_prompt_from_file()
+
+# Create a transcribers
+transcriber_large = whisperx.load_model('large-v3', device='cuda', language='en', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
+transcriber_small=  transcriber_large #whisperx.load_model("base.en", device='cuda', language='en', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
 
 
 def calculate_n_fft(time_duration_ms, sample_rate):
@@ -90,6 +117,24 @@ def vad_filter(y, sr):
 
     return voice_activity
 
+def update_pre_prompt(words):
+    global pre_prompt_words, pre_prompt_lock
+    with pre_prompt_lock:
+        new_words = [w.strip() for w in words.split(',') if w.strip()]
+        pre_prompt_words = list(set(pre_prompt_words + new_words))  # Remove duplicates
+    save_pre_prompt_to_file()
+    return  gr.update(samples=[[word] for word in pre_prompt_words])
+
+def update_gradio_elements():
+    return gr.update(samples=[[word] for word in pre_prompt_words])
+
+def remove_pre_prompt_word(word):
+    global pre_prompt_words, pre_prompt_lock
+    word = word[0]  # Extract the string from the list
+    with pre_prompt_lock:
+        pre_prompt_words = [w for w in pre_prompt_words if w != word]
+    save_pre_prompt_to_file()
+    return gr.update(samples=[[word] for word in pre_prompt_words])
 
 def call_large_transcriber(sr):
     global text_lock, audio_lock, audio_stream, min_duration
@@ -112,24 +157,40 @@ def call_large_transcriber(sr):
             
 
 def transcribe_large_chunk(sr, audio_stream, index):
-    global text_lock, text_stream
+    global text_lock, text_stream, pre_prompt_words, pre_prompt_lock
     print('large')
     tik = time.time()
 
     # write audio to file
     sf.write('large.wav', audio_stream, sr)
+    
+    # Get the current pre-prompt words
+    with pre_prompt_lock:
+        current_pre_prompt = " ".join(pre_prompt_words)
+    
+    # Use the pre-prompt in the transcription
+    new_options = transcriber_large.options._replace(initial_prompt=current_pre_prompt)
+    transcriber_large.options = new_options
+   
+    # Transcribe the audio file
     segments = transcriber_large.transcribe('large.wav')['segments']
     results = [segment['text'] for segment in segments]
-    tok = time.time()
+
     
-     # Acquire the lock before updating the state
-    print(f"**Transcribed large in {tok-tik:.3f} seconds, {index}")
+    print(f"**Transcribed large in {time.time()-tik:.3f} seconds, {index}")
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    transcribed_text_with_timestamp = f"[{timestamp}] {' '.join(results)}\n"
+    
     with text_lock:
-        text_stream[index] = ' '.join(results)
+        text_stream[index] = transcribed_text_with_timestamp
+
+    # Save the transcribed text with timestamp to a file
+    with open("transcriptions.txt", "a") as file:
+        file.write(transcribed_text_with_timestamp)
         
         
 def transcribe_small_chunk(audio_stream, sr):
-    global counter, text_lock, text_stream
+    global counter, text_lock, text_stream, pre_prompt_words, pre_prompt_lock
     counter += 1
     if counter % 3 == 0:
         print('small')
@@ -137,13 +198,24 @@ def transcribe_small_chunk(audio_stream, sr):
         
         # write audio to file
         sf.write('small.wav', audio_stream, sr)
+        
+        # Get the current pre-prompt words
+        with pre_prompt_lock:
+            current_pre_prompt = " ".join(pre_prompt_words)
+            print('current_pre_prompt', current_pre_prompt)
+        
+        # Use the pre-prompt in the transcription
+        new_options = transcriber_small.options._replace(initial_prompt=current_pre_prompt)
+        transcriber_small.options = new_options
+        
+        # Transcribe the audio file
         segments = transcriber_small.transcribe('small.wav')['segments']
         results = [segment['text'] for segment in segments]
-        result = ' '.join(results)
-        tok = time.time()
-        print(f"Transcribed small in {tok-tik:.3f} seconds")
+        
+        print(f"Transcribed small in {time.time()-tik:.3f} seconds")
         with text_lock:
-            text_stream[-1] = f'<{result}>'
+            result = ' '.join(results)
+            text_stream[-1] = f'\n<{result}>'
             
 
 def update_running_average(new_value):
@@ -155,9 +227,6 @@ def is_silence(audio_data, base_threshold=150):
     """Check if the given audio data represents silence based on running average."""
     current_level = np.abs(audio_data).mean()
     running_avg = update_running_average(current_level)
-
-    # if running_avg < base_threshold: # this might indicate just silence 
-    #     return False
     
     dynamic_threshold = running_avg * average_threshold_ratio
     threshold = max(dynamic_threshold, base_threshold)
@@ -165,7 +234,6 @@ def is_silence(audio_data, base_threshold=150):
     # print(f"Current Level: {current_level}, Running Avg: {running_avg}, Threshold: {threshold}")
 
     return current_level < threshold
-
 
 def format_audio_stream(y):
     # Convert the audio to the correct format
@@ -209,10 +277,8 @@ def transcribe_and_update(new_chunk):
     sr, y = new_chunk
     
     # Update the State object
-    # transcribe(sr, y)
     # Start a new thread to transcribe the audio
     executor.submit(transcribe, sr, y)
-
 
     text = ' '.join(text_stream)
     # Return the transcription to update the Textbox immediately
@@ -233,16 +299,46 @@ def ui():
 
         with gr.Row():
             with gr.Column(scale=1, min_width=600):
-                output = gr.Textbox(lines=20, label="Transcription", autoscroll=True, )
+                output = gr.Textbox(lines=20, label="Transcription", autoscroll=True)
                 clear_button = gr.Button(value="Clear Text")
 
-                    
-        audio.change(transcribe_and_update, inputs=audio, outputs=output, concurrency_limit=1, show_progress=False)
+        with gr.Row():
+            with gr.Column(scale=1, min_width=600):
+                pre_prompt_input = gr.Textbox(label="Add Pre-prompt Words (comma-separated)")
+                update_pre_prompt_button = gr.Button(value="Update Pre-prompt")
+
+        with gr.Row():
+            with gr.Column(scale=1, min_width=600):
+                pre_prompt_word_buttons = gr.Dataset(
+                    components=[gr.Textbox(visible=False)],
+                    samples=[],
+                    label="Click to remove pre-prompt word"
+                )
+
+        audio.change(
+            transcribe_and_update, 
+            inputs=audio, 
+            outputs=output, 
+            concurrency_limit=1, 
+            show_progress=False)
+        
         clear_button.click(clear_text, outputs=output)
+        
+        update_pre_prompt_button.click(
+            update_pre_prompt,
+            inputs=[pre_prompt_input],
+            outputs=[ pre_prompt_word_buttons]
+        )
+        pre_prompt_word_buttons.click(
+            remove_pre_prompt_word,
+            inputs=[pre_prompt_word_buttons],
+            outputs=[pre_prompt_word_buttons]
+        )
+        
+        demo.load(update_gradio_elements, [], [pre_prompt_word_buttons])
 
     return demo
-    
 
 if __name__ == "__main__":
     demo = ui()
-    demo.launch(server_port=7888, inbrowser=True )
+    demo.launch(server_port=7888, inbrowser=True)
