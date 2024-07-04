@@ -98,7 +98,6 @@ def get_response(history, request: gr.Request):
             data_json = line[5:].strip()  # Remove 'data:' prefix and any leading/trailing whitespace
             try:
                 parsed_data = json.loads(data_json)
-                # print(parsed_data)  # Now 'parsed_data' is a Python dictionary
                 if 'usage' in parsed_data:
                     token_used = parsed_data['usage']['total_tokens']
                     usage_data = parsed_data.get('usage', {})

@@ -57,7 +57,7 @@ def count_tokens(df):
     prompt_tokens = prompt_tokens[prompt_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
 
     completion_tokens = df[df['event'] == 'chat']['completion_tokens']
-    completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
+    completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)
     
     return tokens, prompt_tokens, completion_tokens
 
