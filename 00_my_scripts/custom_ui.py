@@ -101,6 +101,9 @@ def get_response(history, request: gr.Request):
                 # print(parsed_data)  # Now 'parsed_data' is a Python dictionary
                 if 'usage' in parsed_data:
                     token_used = parsed_data['usage']['total_tokens']
+                    usage_data = parsed_data.get('usage', {})
+                    prompt_tokens = usage_data.get('prompt_tokens', 0)
+                    completion_tokens = usage_data.get('completion_tokens', 0)
                 
                 chunk = parsed_data['choices'][0]['delta']['content']
                 assistant_message += chunk
@@ -129,9 +132,18 @@ def get_response(history, request: gr.Request):
 
     reponse_time = time.time() - tik
     # Log the user ip & user and assistant interaction details
-    logger({'event':'chat', 'user_ip': user_ip, 'prompt':user_promt, 'response':assistant_message,
-            'token_used': token_used, 'reponse_time': reponse_time, 'port': port, 
-            'use_rag':RAG_PARAMS[user_ip]["use_rag"], 'rag_n_results': RAG_PARAMS[user_ip]["rag_n_results"]})
+    logger({'event':'chat', 
+            'user_ip': user_ip, 
+            'prompt':user_promt, 
+            'response':assistant_message,
+            'token_used': token_used, 
+            'reponse_time': reponse_time, 
+            'port': port, 
+            'use_rag':RAG_PARAMS[user_ip]["use_rag"], 
+            'rag_n_results': RAG_PARAMS[user_ip]["rag_n_results"],
+            'prompt_tokens': prompt_tokens,
+            'completion_tokens': completion_tokens
+    })
     
     # Add the assistant message to the chat history
     CHAT_HISTORY[user_ip].append({"role": "assistant", "content": assistant_message})    

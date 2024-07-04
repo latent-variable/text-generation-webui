@@ -44,7 +44,7 @@ def get_user_activity(df):
 # Function to analyze user feedback (like/dislike)
 def analyze_feedback(df):
     feedback = df[df['event'] == 'feedback']
-    liked_disliked = feedback['liked'].value_counts().reset_index()
+    liked_disliked = feedback.get('liked', pd.Series([])).value_counts().reset_index()
     liked_disliked.columns = ['feedback', 'count']
     return liked_disliked
 
@@ -52,7 +52,14 @@ def analyze_feedback(df):
 def count_tokens(df):
     tokens = df[df['event'] == 'chat']['token_used']
     tokens = tokens[tokens != '?'].astype(int)  # Convert to integers
-    return tokens
+    
+    prompt_tokens = df[df['event'] == 'chat']['prompt_tokens']
+    prompt_tokens = prompt_tokens[prompt_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
+
+    completion_tokens = df[df['event'] == 'chat']['completion_tokens']
+    completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
+    
+    return tokens, prompt_tokens, completion_tokens
 
 # Function to get the number of unique users per day
 def unique_users_per_day(df):
@@ -69,7 +76,12 @@ def main():
     # Aggregate metrics for summary table
     total_logged_messages = len(df)
     total_users = df['user_ip'].nunique()
-    total_tokens = count_tokens(df).sum()
+    tokens, prompt_tokens, completion_tokens = count_tokens(df)
+    
+    total_tokens = tokens.sum()
+    total_prompt_tokens = prompt_tokens.sum()
+    total_completion_tokens = completion_tokens.sum()
+    
     total_questions = df[df['event'] == 'chat'].shape[0]
     total_received_feedback = df[df['event'] == 'feedback'].shape[0]
 
@@ -108,8 +120,8 @@ def main():
             ),
             cells=dict(
                 values=[
-                    ["Total logged Messages", "Total Different Users", "Total Tokens", "Total Questions", "Total Received Feedback"],
-                    [total_logged_messages, total_users, total_tokens, total_questions, total_received_feedback]
+                    ["Total Logged Messages", "Total Different Users", "Total Tokens", "Total Prompt Tokens", "Total Completion Tokens", "Total Questions", "Total Received Feedback"],
+                    [total_logged_messages, total_users, total_tokens, total_prompt_tokens, total_completion_tokens, total_questions, total_received_feedback]
                 ],
                 align='left',
                 fill_color=[['#f0f8ff', '#e6f2ff'] * 2],  # Alternating row colors
