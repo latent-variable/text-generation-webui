@@ -280,7 +280,7 @@ def get_ui():
     title = PROPERTIES['title']
     disclaimer = PROPERTIES['disclaimer']
         
-    with gr.Blocks(  title=title, fill_height=True, css=CSS_FORMAT, js=JS_FUNC,delete_cache=(86400, 86400) ) as ui:
+    with gr.Blocks(  title=title, fill_height=True, css=CSS_FORMAT, js=JS_FUNC, delete_cache=(86400, 86400) ) as ui:
                 
         image_data_url = image_to_data_url(os.path.abspath(PROPERTIES['logo']))
         with gr.Row(elem_classes="header-row"):

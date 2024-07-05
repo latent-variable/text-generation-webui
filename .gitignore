@@ -24,6 +24,7 @@
 /settings*.yaml
 /pre-prompt.json
 /transcriptions.txt
+/audio
 
 .chroma
 .DS_Store

@@ -8,65 +8,66 @@ import numpy as np
 import gradio as gr
 import noisereduce as nr
 import soundfile as sf
-
 from collections import deque
 from pydub import AudioSegment
 import whisperx
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
+LANGUAGES = whisperx.utils.TO_LANGUAGE_CODE
+whisper_language = 'english'
 
 # Create a ThreadPoolExecutor with 16 threads to transcribe the audio in parallel
 executor = ThreadPoolExecutor(max_workers=16)
 
-running_avg_buffer = deque(maxlen=30)  # Adjust maxlen to your preference
-average_threshold_ratio = 0.5  # Adjust based on experimentation
+# Create a queue for transcription tasks
+transcription_queue = Queue()
 
-# Create a VAD object
+running_avg_buffer = deque(maxlen=30)
+average_threshold_ratio = 0.5
+
 vad = webrtcvad.Vad()
-
-# Set its aggressiveness mode, which is an integer between 0 and 3. 
-# 0 is the least aggressive about filtering out non-speech, 3 is the most aggressive.
 vad.set_mode(3)
 
-# Create a state object to store the audio stream and the transcribed text
 audio_stream = np.array([])
 text_stream = [""]
-audio_lock = threading.Lock()
-text_lock = threading.Lock()
 
-# min and max duration of audio
+# text_lock = threading.Lock()
+
 min_duration = 3
 max_duration = 10
 
-# call counter
+# counter for skipping frames in the audio stream 
 counter = 0
+counter_skips = 3
 
-# Add a new state variable for pre-prompt words
+# Index for the transcriptions in the text stream array
+transcript_index = 0
+
 pre_prompt_words = []
-pre_prompt_lock = threading.Lock()
-
-# File to store pre-prompt words
 pre_prompt_file = 'pre-prompt.json'
+
+# task to be performed by the model (transcribe/translate)
+current_task = 'transcribe'
 
 
 def save_pre_prompt_to_file():
-    global pre_prompt_words, pre_prompt_lock, pre_prompt_file
-    with pre_prompt_lock:
-        with open(pre_prompt_file, 'w') as file:
-            json.dump(pre_prompt_words, file)
+    global pre_prompt_words,  pre_prompt_file
+    with open(pre_prompt_file, 'w') as file:
+        json.dump(pre_prompt_words, file)
 
 def load_pre_prompt_from_file():
-    global pre_prompt_words, pre_prompt_lock, pre_prompt_file
+    global pre_prompt_words,  pre_prompt_file
     if os.path.exists(pre_prompt_file):
-        with pre_prompt_lock:
-            with open(pre_prompt_file, 'r') as file:
-                pre_prompt_words = json.load(file)
+        with open(pre_prompt_file, 'r') as file:
+            pre_prompt_words = json.load(file)
 
 # Load pre-prompt words when the script starts
 load_pre_prompt_from_file()
 
 # Create a transcribers
-transcriber_large = whisperx.load_model('large-v3', device='cuda', language='en', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
-transcriber_small=  transcriber_large #whisperx.load_model("base.en", device='cuda', language='en', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
+transcriber_large = whisperx.load_model('large-v3', device='cuda', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
+transcriber_small=  transcriber_large #whisperx.load_model("base.en", device='cuda', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
 
 
 def calculate_n_fft(time_duration_ms, sample_rate):
@@ -118,10 +119,9 @@ def vad_filter(y, sr):
     return voice_activity
 
 def update_pre_prompt(words):
-    global pre_prompt_words, pre_prompt_lock
-    with pre_prompt_lock:
-        new_words = [w.strip() for w in words.split(',') if w.strip()]
-        pre_prompt_words = list(set(pre_prompt_words + new_words))  # Remove duplicates
+    global pre_prompt_words
+    new_words = [w.strip() for w in words.split(',') if w.strip()]
+    pre_prompt_words = list(set(pre_prompt_words + new_words))  # Remove duplicates
     save_pre_prompt_to_file()
     return  gr.update(samples=[[word] for word in pre_prompt_words])
 
@@ -129,95 +129,98 @@ def update_gradio_elements():
     return gr.update(samples=[[word] for word in pre_prompt_words])
 
 def remove_pre_prompt_word(word):
-    global pre_prompt_words, pre_prompt_lock
+    global pre_prompt_words
     word = word[0]  # Extract the string from the list
-    with pre_prompt_lock:
-        pre_prompt_words = [w for w in pre_prompt_words if w != word]
+    pre_prompt_words = [w for w in pre_prompt_words if w != word]
     save_pre_prompt_to_file()
     return gr.update(samples=[[word] for word in pre_prompt_words])
 
 def call_large_transcriber(sr):
-    global text_lock, audio_lock, audio_stream, min_duration
-    # If the stream is longer than 5 seconds, start a new thread to transcribe the audio
+    global audio_stream, min_duration
     size_samples = min_duration * sr
     if len(audio_stream) > size_samples:
-        # Write the stream to a file as an mp3
-        with audio_lock:
-            stream = np.array(audio_stream)
-            audio_stream = np.array([])
-
-        with text_lock:
-            # Reset the stream
-            text = text_stream[-1]
-            index = len(text_stream)-1
-            text_stream.append("")
-           
-        if text != "":
-            transcribe_large_chunk(sr, stream, index)
+        transcription_queue.put(('large', sr))
             
 
-def transcribe_large_chunk(sr, audio_stream, index):
-    global text_lock, text_stream, pre_prompt_words, pre_prompt_lock
-    print('large')
-    tik = time.time()
+def transcribe_large_chunk(timestamp, stream, index, sr):
+    global text_stream, audio_stream, pre_prompt_words, LANGUAGES, whisper_language, current_task
 
-    # write audio to file with timestamps 
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    sf.write(f'large_{timestamp}.wav', audio_stream, sr)
+    tik = time.time()
+    os.makedirs('./audio', exist_ok=True)
+    audio_file = f"./audio/{timestamp}-large.wav"
+    sf.write(audio_file, format_audio_stream(stream), sr)
     
-    # Get the current pre-prompt words
-    with pre_prompt_lock:
-        current_pre_prompt = " ".join(pre_prompt_words)
-    
-    # Use the pre-prompt in the transcription
+    current_pre_prompt = " ".join(pre_prompt_words)
     new_options = transcriber_large.options._replace(initial_prompt=current_pre_prompt)
     transcriber_large.options = new_options
+    
+    print(current_pre_prompt)
    
-    # Transcribe the audio file
-    segments = transcriber_large.transcribe('large.wav')['segments']
+    segments = transcriber_large.transcribe(audio_file,language=LANGUAGES[whisper_language],task=current_task)['segments']
     results = [segment['text'] for segment in segments]
 
-    
-    print(f"**Transcribed large in {time.time()-tik:.3f} seconds, {index}")
     transcribed_text_with_timestamp = f"[{timestamp}] {' '.join(results)}\n"
-    
-    with text_lock:
-        text_stream[index] = transcribed_text_with_timestamp
+    text_stream[index] = transcribed_text_with_timestamp
 
-    # Save the transcribed text with timestamp to a file
     with open("transcriptions.txt", "a") as file:
         file.write(transcribed_text_with_timestamp)
         
-        
-def transcribe_small_chunk(audio_stream, sr):
-    global counter, text_lock, text_stream, pre_prompt_words, pre_prompt_lock
-    counter += 1
-    if counter % 3 == 0:
-        print('small')
-        tik = time.time()
-        
-        # write audio to file
+    return time.time()-tik
+
+
+def transcribe_small_chunk(timestamp, index, sr):
+    global text_stream, pre_prompt_words, audio_stream, LANGUAGES, whisper_language, current_task
+   
+    tik = time.time()
+    os.makedirs('./audio', exist_ok=True)
+    audio_file = f'./audio/{timestamp}-small.wav'
+    sf.write(audio_file, format_audio_stream(audio_stream), sr)
+    
+    # update the pre-prompt words 
+    current_pre_prompt = " ".join(pre_prompt_words)
+    new_options = transcriber_small.options._replace(initial_prompt=current_pre_prompt)
+    transcriber_small.options = new_options
+    
+    segments = transcriber_small.transcribe(audio_file,language=LANGUAGES[whisper_language],task=current_task)['segments']
+    results = [segment['text'] for segment in segments]
+    
+    result = ' '.join(results)
+    text_stream[index] = f'\n<{result}>'
+    
+    return time.time()-tik
+
+
+ # Add a new function to process the transcription queue
+def process_transcription_queue():
+    global  text_stream, audio_stream, transcript_index, counter, counter_skips
+    while True:
+        task = transcription_queue.get()
+        if task is None:
+            break
+        task_type, *args = task
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        sf.write(f'small_{timestamp}.wav', audio_stream, sr)
+       
+       
+        if task_type == 'large':
+            stream = np.array(audio_stream)
+            audio_stream = np.array([])
+            text_stream.append("")
+                
+            cost = transcribe_large_chunk(timestamp, stream, transcript_index, *args)
+            print(f'{timestamp} - {task_type} -index {transcript_index}- {cost:.3f} seconds')
+            transcript_index += 1
         
-        # Get the current pre-prompt words
-        with pre_prompt_lock:
-            current_pre_prompt = " ".join(pre_prompt_words)
-            print('current_pre_prompt', current_pre_prompt)
-        
-        # Use the pre-prompt in the transcription
-        new_options = transcriber_small.options._replace(initial_prompt=current_pre_prompt)
-        transcriber_small.options = new_options
-        
-        # Transcribe the audio file
-        segments = transcriber_small.transcribe('small.wav')['segments']
-        results = [segment['text'] for segment in segments]
-        
-        print(f"Transcribed small in {time.time()-tik:.3f} seconds")
-        with text_lock:
-            result = ' '.join(results)
-            text_stream[-1] = f'\n<{result}>'
-            
+        elif task_type == 'small':
+            counter += 1
+            if (counter % counter_skips == 0): 
+                cost = transcribe_small_chunk(timestamp, transcript_index, *args)
+                print(f'{timestamp} - {task_type} -index {transcript_index}- {cost:.3f} seconds')
+        transcription_queue.task_done()
+
+# Start the queue processing thread
+queue_thread = threading.Thread(target=process_transcription_queue)
+queue_thread.start()
+ 
 
 def update_running_average(new_value):
     running_avg_buffer.append(new_value)
@@ -242,56 +245,65 @@ def format_audio_stream(y):
     y /= np.max(np.abs(y))
     return y
 
+def reverse_format_audio_stream(y):
+    # Find the maximum absolute value
+    max_abs_value = np.max(np.abs(y))
+    
+    # Multiply by the max absolute value to undo the normalization
+    y *= max_abs_value
+    
+    # Convert back to int16
+    y = (y * 32767).astype(np.int16)
+    
+    return y
 
 def transcribe(sr, y):
-    global audio_stream, audio_lock, max_duration
+    global audio_stream, max_duration
     
-    # If the audio is silent, start
-    if np.sum(np.abs(y)) == 0:
-        call_large_transcriber(sr)
+    audio_stream = np.concatenate([audio_stream, y])
+    stream = np.array(audio_stream)
+    
+    # if the stream is silent reset steam
+    if np.sum(np.abs(stream)) == 0 or is_silence(stream):
+        audio_stream = np.array([])
         return 
     
-    if is_silence(y):
+    # if only the last chunk is silent caLL large transcriber
+    if np.sum(np.abs(y)) == 0 or is_silence(y):
         call_large_transcriber(sr)
         return
     
-
-    with audio_lock:
-        audio_stream= np.concatenate([audio_stream, format_audio_stream(y)])
-        stream = np.array(audio_stream)
-
-    # Filter the audio using VAD
     if not vad_filter(y, sr):
         call_large_transcriber(sr)
-        return 
+        return
 
-    # If the stream is longer than max_duration seconds, start a new thread to transcribe the audio
     if (len(stream) / sr) > max_duration:
         call_large_transcriber(sr)
-    else:
-        transcribe_small_chunk(stream, sr)
-
+    elif (len(stream) / sr) <= (max_duration * 0.80):
+        transcription_queue.put(('small', sr))
+        
 
 def transcribe_and_update(new_chunk):
-    global text_stream, text_lock
+    global text_stream
 
     sr, y = new_chunk
-    
-    # Update the State object
-    # Start a new thread to transcribe the audio
     executor.submit(transcribe, sr, y)
-
     text = ' '.join(text_stream)
-    # Return the transcription to update the Textbox immediately
     return text
 
 def clear_text():
-    global text_stream, text_lock
-    with text_lock:
-        text_stream = [""]
-    return ""
+    global text_stream
+    text_stream = [""]
+    return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), ""
 
-
+def change_task(task):
+    global current_task
+    current_task = task
+    
+def change_whisper_language(language):
+    global whisper_language
+    whisper_language = language
+    
 def ui():
     with gr.Blocks() as demo:
         with gr.Row():
@@ -299,9 +311,15 @@ def ui():
                 audio = gr.Audio(streaming=True, label="Speak Now")
 
         with gr.Row():
-            with gr.Column(scale=1, min_width=600):
-                output = gr.Textbox(lines=20, label="Transcription", autoscroll=True)
-                clear_button = gr.Button(value="Clear Text")
+            with gr.Column(scale=1, min_width=600 ):
+                output = gr.Textbox(lines=25,  label="Transcription", autoscroll=True)
+                with gr.Row():
+                    delete_btn = gr.Button("Clear Text")
+                    confirm_btn = gr.Button("Confirm delete", variant="stop", visible=False)
+                    cancel_btn = gr.Button("Cancel", visible=False)
+                    
+                    task_selection = gr.Radio(label='Select Task', choices=['transcribe', 'translate'], value='transcribe')
+                    whipser_language = gr.Dropdown(label='Language', value='english', choices=list(LANGUAGES.keys()) )
 
         with gr.Row():
             with gr.Column(scale=1, min_width=600):
@@ -323,7 +341,13 @@ def ui():
             concurrency_limit=1, 
             show_progress=False)
         
-        clear_button.click(clear_text, outputs=output)
+        # clear_button.click(clear_text, outputs=output)
+        task_selection.change(change_task, task_selection, [])
+        whipser_language.change(change_whisper_language, whipser_language, [])
+        
+        delete_btn.click(lambda :[gr.update(visible=False), gr.update(visible=True), gr.update(visible=True)], None, [delete_btn, confirm_btn, cancel_btn])
+        cancel_btn.click(lambda :[gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)], None, [delete_btn, confirm_btn, cancel_btn])
+        confirm_btn.click(clear_text, None, [delete_btn, confirm_btn, cancel_btn, output])
         
         update_pre_prompt_button.click(
             update_pre_prompt,
