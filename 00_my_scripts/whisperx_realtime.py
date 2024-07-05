@@ -161,8 +161,9 @@ def transcribe_large_chunk(sr, audio_stream, index):
     print('large')
     tik = time.time()
 
-    # write audio to file
-    sf.write('large.wav', audio_stream, sr)
+    # write audio to file with timestamps 
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    sf.write(f'large_{timestamp}.wav', audio_stream, sr)
     
     # Get the current pre-prompt words
     with pre_prompt_lock:
@@ -178,7 +179,6 @@ def transcribe_large_chunk(sr, audio_stream, index):
 
     
     print(f"**Transcribed large in {time.time()-tik:.3f} seconds, {index}")
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     transcribed_text_with_timestamp = f"[{timestamp}] {' '.join(results)}\n"
     
     with text_lock:
@@ -197,7 +197,8 @@ def transcribe_small_chunk(audio_stream, sr):
         tik = time.time()
         
         # write audio to file
-        sf.write('small.wav', audio_stream, sr)
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        sf.write(f'small_{timestamp}.wav', audio_stream, sr)
         
         # Get the current pre-prompt words
         with pre_prompt_lock:

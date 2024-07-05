@@ -1,3 +1,0 @@
-SpeechRecognition==3.10.0
-soundfile
-ffmpeg
