@@ -154,9 +154,8 @@ def transcribe_large_chunk(timestamp, stream, index, sr):
     new_options = transcriber_large.options._replace(initial_prompt=current_pre_prompt)
     transcriber_large.options = new_options
     
-    print(current_pre_prompt)
-   
-    segments = transcriber_large.transcribe(audio_file,language=LANGUAGES[whisper_language],task=current_task)['segments']
+    language = LANGUAGES[whisper_language] if whisper_language in LANGUAGES else None
+    segments = transcriber_large.transcribe(audio_file,language=language,task=current_task)['segments']
     results = [segment['text'] for segment in segments]
 
     transcribed_text_with_timestamp = f"[{timestamp}] {' '.join(results)}\n"
@@ -181,7 +180,8 @@ def transcribe_small_chunk(timestamp, index, sr):
     new_options = transcriber_small.options._replace(initial_prompt=current_pre_prompt)
     transcriber_small.options = new_options
     
-    segments = transcriber_small.transcribe(audio_file,language=LANGUAGES[whisper_language],task=current_task)['segments']
+    language = LANGUAGES[whisper_language] if whisper_language in LANGUAGES else None
+    segments = transcriber_small.transcribe(audio_file,language=language, task=current_task)['segments']
     results = [segment['text'] for segment in segments]
     
     result = ' '.join(results)
@@ -194,29 +194,32 @@ def transcribe_small_chunk(timestamp, index, sr):
 def process_transcription_queue():
     global  text_stream, audio_stream, transcript_index, counter, counter_skips
     while True:
-        task = transcription_queue.get()
-        if task is None:
-            break
-        task_type, *args = task
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-       
-       
-        if task_type == 'large':
-            stream = np.array(audio_stream)
-            audio_stream = np.array([])
-            text_stream.append("")
-                
-            cost = transcribe_large_chunk(timestamp, stream, transcript_index, *args)
-            print(f'{timestamp} - {task_type} -index {transcript_index}- {cost:.3f} seconds')
-            transcript_index += 1
+        try:
+            task = transcription_queue.get()
+            if task is None:
+                break
+            task_type, *args = task
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         
-        elif task_type == 'small':
-            counter += 1
-            if (counter % counter_skips == 0): 
-                cost = transcribe_small_chunk(timestamp, transcript_index, *args)
+        
+            if task_type == 'large':
+                stream = np.array(audio_stream)
+                audio_stream = np.array([])
+                text_stream.append("")
+                    
+                cost = transcribe_large_chunk(timestamp, stream, transcript_index, *args)
                 print(f'{timestamp} - {task_type} -index {transcript_index}- {cost:.3f} seconds')
-        transcription_queue.task_done()
-
+                transcript_index += 1
+            
+            elif task_type == 'small':
+                counter += 1
+                if (counter % counter_skips == 0): 
+                    cost = transcribe_small_chunk(timestamp, transcript_index, *args)
+                    print(f'{timestamp} - {task_type} -index {transcript_index}- {cost:.3f} seconds')
+            transcription_queue.task_done()
+            
+        except Exception as e:
+            print("Error in transcription queue", e)
 # Start the queue processing thread
 queue_thread = threading.Thread(target=process_transcription_queue)
 queue_thread.start()
@@ -292,8 +295,9 @@ def transcribe_and_update(new_chunk):
     return text
 
 def clear_text():
-    global text_stream
+    global text_stream, transcript_index
     text_stream = [""]
+    transcript_index = 0
     return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), ""
 
 def change_task(task):
@@ -319,7 +323,7 @@ def ui():
                     cancel_btn = gr.Button("Cancel", visible=False)
                     
                     task_selection = gr.Radio(label='Select Task', choices=['transcribe', 'translate'], value='transcribe')
-                    whipser_language = gr.Dropdown(label='Language', value='english', choices=list(LANGUAGES.keys()) )
+                    whipser_language = gr.Dropdown(label='Language', value='english', choices=['Auto-Detect'] + list(LANGUAGES.keys()) )
 
         with gr.Row():
             with gr.Column(scale=1, min_width=600):
