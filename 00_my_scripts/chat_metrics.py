@@ -1,6 +1,7 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request, render_template
 import plotly.io as pio
 import json
+import datetime
 import pandas as pd
 from collections import Counter
 from plotly.subplots import make_subplots
@@ -44,7 +45,7 @@ def get_user_activity(df):
 # Function to analyze user feedback (like/dislike)
 def analyze_feedback(df):
     feedback = df[df['event'] == 'feedback']
-    liked_disliked = feedback['liked'].value_counts().reset_index()
+    liked_disliked = feedback.get('liked', pd.Series([])).value_counts().reset_index()
     liked_disliked.columns = ['feedback', 'count']
     return liked_disliked
 
@@ -52,26 +53,61 @@ def analyze_feedback(df):
 def count_tokens(df):
     tokens = df[df['event'] == 'chat']['token_used']
     tokens = tokens[tokens != '?'].astype(int)  # Convert to integers
-    return tokens
+    
+    prompt_tokens = df[df['event'] == 'chat']['prompt_tokens']
+    prompt_tokens = prompt_tokens[prompt_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
+
+    completion_tokens = df[df['event'] == 'chat']['completion_tokens']
+    completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)
+    
+    return tokens, prompt_tokens, completion_tokens
 
 # Function to get the number of unique users per day
 def unique_users_per_day(df):
     daily_unique_users = df.groupby(df['timestamp'].dt.date)['user_ip'].nunique()
     return daily_unique_users.reset_index(name='unique_users')
 
+# Function to filter logs based on a desired timeframe
+def filter_logs(df, timeframe):
+    timeframe_offset = {
+        'all': None,
+        '1day':pd.DateOffset(days=1),
+        '1week':pd.DateOffset(weeks=1),
+        '1month':pd.DateOffset(months=1),
+        '3month':pd.DateOffset(months=3),
+        '6month':pd.DateOffset(months=6),
+        '1year':pd.DateOffset(years=1)
+    }
 
-def main():
+    now = datetime.datetime.now()
+    offset = timeframe_offset.get(timeframe, None)
+
+    if(offset is None):
+        filtered_df = df
+    else:
+        start_date = now - offset
+        filtered_df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= now)]
+    return filtered_df
+
+
+def main(timeframe='all'):
     print("Running dashboard script...")
     
     # Load the chat logs
     df = load_logs()
+    filtered_df = filter_logs(df, timeframe)
 
     # Aggregate metrics for summary table
-    total_logged_messages = len(df)
-    total_users = df['user_ip'].nunique()
-    total_tokens = count_tokens(df).sum()
-    total_questions = df[df['event'] == 'chat'].shape[0]
-    total_received_feedback = df[df['event'] == 'feedback'].shape[0]
+    total_logged_messages = len(filtered_df)
+    total_users = filtered_df['user_ip'].nunique()
+    tokens, prompt_tokens, completion_tokens = count_tokens(filtered_df)
+    
+    total_tokens = tokens.sum()
+    total_prompt_tokens = prompt_tokens.sum()
+    total_completion_tokens = completion_tokens.sum()
+    
+    total_questions = filtered_df[filtered_df['event'] == 'chat'].shape[0]
+    total_received_feedback = filtered_df[filtered_df['event'] == 'feedback'].shape[0]
 
 
     # Prepare data for all metrics
@@ -108,8 +144,8 @@ def main():
             ),
             cells=dict(
                 values=[
-                    ["Total logged Messages", "Total Different Users", "Total Tokens", "Total Questions", "Total Received Feedback"],
-                    [total_logged_messages, total_users, total_tokens, total_questions, total_received_feedback]
+                    ["Total Logged Messages", "Total Different Users", "Total Tokens", "Total Prompt Tokens", "Total Completion Tokens", "Total Questions", "Total Received Feedback"],
+                    [total_logged_messages, total_users, total_tokens, total_prompt_tokens, total_completion_tokens, total_questions, total_received_feedback]
                 ],
                 align='left',
                 fill_color=[['#f0f8ff', '#e6f2ff'] * 2],  # Alternating row colors
@@ -157,11 +193,12 @@ def main():
 # Create a Flask app
 app = Flask(__name__)
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    fig = main()
+    timeframe = request.form.get('timeframe', 'all')
+    fig = main(timeframe)
     div = pio.to_html(fig, full_html=False)
-    return render_template_string("""<html><body>{{ div|safe }}</body></html>""", div=div)
+    return render_template('home.html', div=div, timeframe=timeframe)
 
 if __name__ == '__main__':
     app.run(port=5000)  # specify the port number here
