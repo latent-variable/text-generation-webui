@@ -5,6 +5,7 @@ import base64
 import random
 import getpass
 import requests
+import datetime
 
 import whisperx
 import gradio as gr
@@ -129,19 +130,21 @@ def get_response(history, request: gr.Request):
     # Set the port status to free
     PORT_STATUS[port] = False
 
-    reponse_time = time.time() - tik
+    response_time = time.time() - tik
+    response_date = datetime.datetime.now().isoformat()
     # Log the user ip & user and assistant interaction details
     logger({'event':'chat', 
             'user_ip': user_ip, 
             'prompt':user_promt, 
             'response':assistant_message,
             'token_used': token_used, 
-            'reponse_time': reponse_time, 
+            'response_time': response_time, 
             'port': port, 
             'use_rag':RAG_PARAMS[user_ip]["use_rag"], 
             'rag_n_results': RAG_PARAMS[user_ip]["rag_n_results"],
             'prompt_tokens': prompt_tokens,
-            'completion_tokens': completion_tokens
+            'completion_tokens': completion_tokens,
+            'response_date': response_date
     })
     
     # Add the assistant message to the chat history
