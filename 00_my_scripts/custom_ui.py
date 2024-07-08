@@ -131,7 +131,6 @@ def get_response(history, request: gr.Request):
     PORT_STATUS[port] = False
 
     response_time = time.time() - tik
-    response_date = datetime.datetime.now().isoformat()
     # Log the user ip & user and assistant interaction details
     logger({'event':'chat', 
             'user_ip': user_ip, 
@@ -144,7 +143,6 @@ def get_response(history, request: gr.Request):
             'rag_n_results': RAG_PARAMS[user_ip]["rag_n_results"],
             'prompt_tokens': prompt_tokens,
             'completion_tokens': completion_tokens,
-            'response_date': response_date
     })
     
     # Add the assistant message to the chat history
