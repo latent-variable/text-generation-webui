@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, render_template
 import plotly.io as pio
 import json
 import datetime
@@ -67,6 +67,7 @@ def unique_users_per_day(df):
     daily_unique_users = df.groupby(df['timestamp'].dt.date)['user_ip'].nunique()
     return daily_unique_users.reset_index(name='unique_users')
 
+# Function to filter logs based on a desired timeframe
 def filter_logs(df, timeframe):
     timeframe_offset = {
         'all': None,
@@ -81,7 +82,7 @@ def filter_logs(df, timeframe):
     now = datetime.datetime.now()
     offset = timeframe_offset.get(timeframe, None)
 
-    if offset is None:
+    if(offset is None):
         filtered_df = df
     else:
         start_date = now - offset
@@ -192,40 +193,12 @@ def main(timeframe='all'):
 # Create a Flask app
 app = Flask(__name__)
 
-# @app.route('/')
-# def home():
-#     fig = main()
-#     div = pio.to_html(fig, full_html=False)
-#     return render_template_string("""<html><body>{{ div|safe }}</body></html>""", div=div)
-
 @app.route('/', methods=['GET', 'POST'])
 def home():
     timeframe = request.form.get('timeframe', 'all')
     fig = main(timeframe)
     div = pio.to_html(fig, full_html=False)
-    return render_template_string("""
-    <html>
-    <head>
-        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    </head>
-    <body>
-        <div>
-            <form method="post" action="/">
-                <select name="timeframe" onchange="this.form.submit()">
-                    <option value="all" {% if timeframe == 'all' %} selected {% endif %}>All-time</option>
-                    <option value="1day" {% if timeframe == '1day' %} selected {% endif %}>1 Day</option>
-                    <option value="1week" {% if timeframe == '1week' %} selected {% endif %}>1 Week</option>
-                    <option value="1month" {% if timeframe == '1month' %} selected {% endif %}>1 Month</option>
-                    <option value="3month" {% if timeframe == '3month' %} selected {% endif %}>3 Month</option>
-                    <option value="6month" {% if timeframe == '6month' %} selected {% endif %}>6 Month</option>
-                    <option value="1year" {% if timeframe == '1year' %} selected {% endif %}>1 Year</option>             
-                </select>
-            </form>
-        </div>
-        {{ div|safe }}
-    </body>
-    </html>
-    """, div=div, timeframe=timeframe)
+    return render_template('home.html', div=div, timeframe=timeframe)
 
 if __name__ == '__main__':
     app.run(port=5000)  # specify the port number here
