@@ -1,6 +1,7 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request
 import plotly.io as pio
 import json
+import datetime
 import pandas as pd
 from collections import Counter
 from plotly.subplots import make_subplots
@@ -66,24 +67,46 @@ def unique_users_per_day(df):
     daily_unique_users = df.groupby(df['timestamp'].dt.date)['user_ip'].nunique()
     return daily_unique_users.reset_index(name='unique_users')
 
+def filter_logs(df, timeframe):
+    timeframe_offset = {
+        'all': None,
+        '1day':pd.DateOffset(days=1),
+        '1week':pd.DateOffset(weeks=1),
+        '1month':pd.DateOffset(months=1),
+        '3month':pd.DateOffset(months=3),
+        '6month':pd.DateOffset(months=6),
+        '1year':pd.DateOffset(years=1)
+    }
 
-def main():
+    now = datetime.datetime.now()
+    offset = timeframe_offset.get(timeframe, None)
+
+    if offset is None:
+        filtered_df = df
+    else:
+        start_date = now - offset
+        filtered_df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= now)]
+    return filtered_df
+
+
+def main(timeframe='all'):
     print("Running dashboard script...")
     
     # Load the chat logs
     df = load_logs()
+    filtered_df = filter_logs(df, timeframe)
 
     # Aggregate metrics for summary table
-    total_logged_messages = len(df)
-    total_users = df['user_ip'].nunique()
-    tokens, prompt_tokens, completion_tokens = count_tokens(df)
+    total_logged_messages = len(filtered_df)
+    total_users = filtered_df['user_ip'].nunique()
+    tokens, prompt_tokens, completion_tokens = count_tokens(filtered_df)
     
     total_tokens = tokens.sum()
     total_prompt_tokens = prompt_tokens.sum()
     total_completion_tokens = completion_tokens.sum()
     
-    total_questions = df[df['event'] == 'chat'].shape[0]
-    total_received_feedback = df[df['event'] == 'feedback'].shape[0]
+    total_questions = filtered_df[filtered_df['event'] == 'chat'].shape[0]
+    total_received_feedback = filtered_df[filtered_df['event'] == 'feedback'].shape[0]
 
 
     # Prepare data for all metrics
@@ -169,11 +192,40 @@ def main():
 # Create a Flask app
 app = Flask(__name__)
 
-@app.route('/')
+# @app.route('/')
+# def home():
+#     fig = main()
+#     div = pio.to_html(fig, full_html=False)
+#     return render_template_string("""<html><body>{{ div|safe }}</body></html>""", div=div)
+
+@app.route('/', methods=['GET', 'POST'])
 def home():
-    fig = main()
+    timeframe = request.form.get('timeframe', 'all')
+    fig = main(timeframe)
     div = pio.to_html(fig, full_html=False)
-    return render_template_string("""<html><body>{{ div|safe }}</body></html>""", div=div)
+    return render_template_string("""
+    <html>
+    <head>
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    </head>
+    <body>
+        <div>
+            <form method="post" action="/">
+                <select name="timeframe" onchange="this.form.submit()">
+                    <option value="all" {% if timeframe == 'all' %} selected {% endif %}>All-time</option>
+                    <option value="1day" {% if timeframe == '1day' %} selected {% endif %}>1 Day</option>
+                    <option value="1week" {% if timeframe == '1week' %} selected {% endif %}>1 Week</option>
+                    <option value="1month" {% if timeframe == '1month' %} selected {% endif %}>1 Month</option>
+                    <option value="3month" {% if timeframe == '3month' %} selected {% endif %}>3 Month</option>
+                    <option value="6month" {% if timeframe == '6month' %} selected {% endif %}>6 Month</option>
+                    <option value="1year" {% if timeframe == '1year' %} selected {% endif %}>1 Year</option>             
+                </select>
+            </form>
+        </div>
+        {{ div|safe }}
+    </body>
+    </html>
+    """, div=div, timeframe=timeframe)
 
 if __name__ == '__main__':
     app.run(port=5000)  # specify the port number here
