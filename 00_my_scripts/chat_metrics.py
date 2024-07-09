@@ -1,13 +1,14 @@
-from flask import Flask, render_template_string, request, render_template
-import plotly.io as pio
+
+
 import json
 import datetime
+import numpy as np
 import pandas as pd
-from collections import Counter
+import plotly.io as pio
+
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import plotly.express as px
-
+from flask import Flask, render_template_string, request, render_template
 
 # Load JSON logs from file
 def load_logs(log_file = 'chat_log.json'):
@@ -54,11 +55,15 @@ def count_tokens(df):
     tokens = df[df['event'] == 'chat']['token_used']
     tokens = tokens[tokens != '?'].astype(int)  # Convert to integers
     
-    prompt_tokens = df[df['event'] == 'chat']['prompt_tokens']
-    prompt_tokens = prompt_tokens[prompt_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
+    prompt_tokens = np.array([])   # Initialize variable for total number of tokens used (excluding '?')
+    if 'prompt_tokens' in df.columns: # If 'prompt_tokens' column exists, add it to the tokens used
+        prompt_tokens = df[df['event'] == 'chat']['prompt_tokens']
+        prompt_tokens = prompt_tokens[prompt_tokens != '?'].astype(float).fillna(0).astype(int)  # Handle NaN values and convert to integers
 
-    completion_tokens = df[df['event'] == 'chat']['completion_tokens']
-    completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)
+    completion_tokens = np.array([])  # Initialize variable for total number of completion tokens (excluding '?')
+    if 'completion_tokens' in df.columns:   # If 'completion_tokens' column exists, add it to the tokens used
+        completion_tokens = df[df['event'] == 'chat']['completion_tokens']
+        completion_tokens = completion_tokens[completion_tokens != '?'].astype(float).fillna(0).astype(int)
     
     return tokens, prompt_tokens, completion_tokens
 

@@ -39,7 +39,7 @@ max_duration = 10
 
 # counter for skipping frames in the audio stream 
 counter = 0
-counter_skips = 3
+counter_skips = 2
 
 # Index for the transcriptions in the text stream array
 transcript_index = 0
