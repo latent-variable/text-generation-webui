@@ -116,10 +116,9 @@ def main(timeframe='all'):
 
 
     # Prepare data for all metrics
-    user_activity = get_user_activity(df)
-    feedback_df = analyze_feedback(df)
-    tokens = count_tokens(df)
-    unique_users_df = unique_users_per_day(df)
+    user_activity = get_user_activity(filtered_df)
+    feedback_df = analyze_feedback(filtered_df)
+    unique_users_df = unique_users_per_day(filtered_df)
 
     # Create a subplot figure with a grid of 3x2 (3 rows, 2 columns)
     fig = make_subplots(
