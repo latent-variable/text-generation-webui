@@ -267,16 +267,14 @@ def auto_transcribe(audio, message):
 def submit_feedback(user_name, text_feedback, request: gr.Request):
     if text_feedback is None or text_feedback == '':
         return None, None
-    
-    addressed = False
-    
+
     user_ip = request.client.host if request is not None else 'no-user-ip'
     logger({'event':'feedback', 
             'user_ip': user_ip, 
             'user_name': user_name, 
             'feedback': text_feedback, 
             'chat_history': CHAT_HISTORY[user_ip],
-            'addressed': addressed
+            'addressed': False
     })
 
     gr.Info("Thank you for the feedback!")

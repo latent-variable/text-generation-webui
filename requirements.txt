@@ -104,6 +104,7 @@ num2words
 
 # Authentication 
 python-keycloak
+cryptography
 PyKCS11
 pywin32
 pyscard
