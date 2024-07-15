@@ -1,12 +1,11 @@
-// Function to fetch JSON data and create the table
-async function fetchAndDisplayJsonData() {
+async function fetchAndDisplayJsonData(timeframe) {
     try {
-        // Fetch the JSON data from the server
-        let response = await fetch('/get_json_data');
+        // Fetch the JSON data from the server based on selected timeframe
+        let response = await fetch(`/get_json_data?timeframe=${timeframe}`);
         let jsonData = await response.json();
 
         // Define the columns you want to display in the table
-        let col = ['user_ip', 'feedback', 'timestamp'];
+        let col = ['user_ip', 'feedback', 'timestamp', 'addressed'];
 
         // Create a table element
         const table = document.createElement("table");
@@ -28,9 +27,23 @@ async function fetchAndDisplayJsonData() {
             tr = tbody.insertRow(-1);
             for (let j = 0; j < col.length; j++) {
                 let tabCell = tr.insertCell(-1);
-                tabCell.innerHTML = jsonData[i][col[j]];
+                if (col[j] === 'addressed') {
+                    // Create a checkbox element for 'addressed' field
+                    let checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = jsonData[i][col[j]]; // Set initial state based on JSON data
+                    checkbox.addEventListener('change', function() {
+                        updateAddressedStatus(jsonData[i], this.checked);
+                    });
+                    tabCell.appendChild(checkbox);
+                } else {
+                    tabCell.innerHTML = jsonData[i][col[j]];
+                }
             }
         }
+
+        // Clear previous table content
+        document.querySelector(".json-table-container").innerHTML = '';
 
         // Append the table to the container
         document.querySelector(".json-table-container").appendChild(table);
@@ -39,5 +52,34 @@ async function fetchAndDisplayJsonData() {
     }
 }
 
-// Call the function to fetch and display the JSON data
-fetchAndDisplayJsonData();
+// Function to update 'addressed' status and save to server
+async function updateAddressedStatus(rowData, checked) {
+    try {
+        rowData['addressed'] = checked;
+        // Update the JSON data on the server using fetch and POST method
+        await fetch('/update_addressed_status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(rowData)
+        });
+    } catch (error) {
+        console.error('Error updating addressed status:', error);
+    }
+}
+
+// Function to handle timeframe change and fetch data
+function handleTimeframeChange() {
+    let timeframe = document.querySelector('select[name="timeframe"]').value;
+    fetchAndDisplayJsonData(timeframe);
+}
+
+// Event listener for timeframe change
+document.querySelector('select[name="timeframe"]').addEventListener('change', handleTimeframeChange);
+
+// Fetch and display initial data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    let initialTimeframe = document.querySelector('select[name="timeframe"]').value;
+    fetchAndDisplayJsonData(initialTimeframe);
+});

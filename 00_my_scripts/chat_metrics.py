@@ -216,11 +216,14 @@ app = Flask(__name__)
 
 @app.route('/get_json_data')
 def get_json_data():
+
+    timeframe = request.args.get('timeframe', 'all')
     # Load the chat logs without modifying the load_logs function
     df = load_logs()
+    filtered_df = filter_logs(df, timeframe)
     
     # Filter the DataFrame to include only rows where event is 'feedback'
-    feedback_df = df[(df['event'] == 'feedback') & df['feedback'].notnull()]
+    feedback_df = filtered_df[(filtered_df['event'] == 'feedback') & filtered_df['feedback'].notnull()]
     feedback_df['addressed'].fillna(False, inplace=True)
     
     # Select only relevant columns

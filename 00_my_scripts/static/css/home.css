@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
 
 .table-container {
-    height: 300px; /* Adjust height as per your design */
+    height: 300px; 
     overflow: auto;
     padding-right: 15px;
 }
