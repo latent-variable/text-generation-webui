@@ -69,11 +69,25 @@ def count_tokens(df):
 
 # Function to get the number of unique users per day
 def unique_users_per_day(df):
-    daily_unique_users = df.groupby(df['timestamp'].dt.date)['user_ip'].nunique()
-    return daily_unique_users.reset_index(name='unique_users')
+    # Initialize a DataFrame with the complete date range
+    date_range = pd.date_range(start=df['timestamp'].dt.date.min(), end=df['timestamp'].dt.date.max(), freq='D')
+    daily_unique_users = pd.DataFrame({'timestamp': date_range})
+    
+    # Calculate active days with actual user counts from df
+    active_days = df.groupby(df['timestamp'].dt.date)['user_ip'].nunique().reset_index()
+    active_days['timestamp'] = pd.to_datetime(active_days['timestamp'])  # Ensure timestamp is datetime64[ns]
+    
+    # Merge with active days to get counts, filling NaN with 0
+    daily_unique_users = pd.merge(daily_unique_users, active_days, on='timestamp', how='left').fillna({'user_ip': 0})
+    
+    # Rename column to match expected output
+    daily_unique_users = daily_unique_users.rename(columns={'user_ip': 'unique_users'})
+    
+    return daily_unique_users
 
 # Function to filter logs based on a desired timeframe
 def filter_logs(df, timeframe):
+    # Define the time offsets for each timeframe option
     timeframe_offset = {
         'all': None,
         '1day':pd.DateOffset(days=1),
@@ -87,9 +101,10 @@ def filter_logs(df, timeframe):
     now = datetime.datetime.now()
     offset = timeframe_offset.get(timeframe, None)
 
-    if(offset is None):
+    
+    if(offset is None):     # If no offset is provided (i.e., 'all' timeframe), use the entire DataFrame
         filtered_df = df
-    else:
+    else:                   # Filter the DataFrame to include only rows within the specified timeframe
         start_date = now - offset
         filtered_df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= now)]
     return filtered_df
