@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+.table-container {
+    height: 300px; /* Adjust height as per your design */
+    overflow: auto;
+    padding-right: 15px;
+}
+
+
+#json-table{
+    font-family: "Poppins", sans-serif;
+    border-collapse: collapse;
+}
+
+#json-table th{
+    background: #3498db;
+    padding: 10px 15px;
+    text-align: left;
+}
+
+#json-table tr td{
+    padding: 10px 15px;
+    text-align: left;
+}
+
+#json-table tbody tr:nth-child(even) td{
+    background: #eeeeee;
+}

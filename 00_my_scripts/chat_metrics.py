@@ -1,5 +1,3 @@
-
-
 import json
 import datetime
 import numpy as np
@@ -8,7 +6,7 @@ import plotly.io as pio
 
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from flask import Flask, render_template_string, request, render_template
+from flask import Flask, render_template_string, request, render_template, jsonify
 
 # Load JSON logs from file
 def load_logs(log_file = 'chat_log.json'):
@@ -109,6 +107,10 @@ def filter_logs(df, timeframe):
         filtered_df = df[(df['timestamp'] >= start_date) & (df['timestamp'] <= now)]
     return filtered_df
 
+# Function to fetch feedback events
+def fetch_feedback_logs(df):
+    feedback_logs = df[df['event'] == 'feedback'].copy()
+    return feedback_logs
 
 def main(timeframe='all'):
     print("Running dashboard script...")
@@ -211,6 +213,21 @@ def main(timeframe='all'):
 
 # Create a Flask app
 app = Flask(__name__)
+
+@app.route('/get_json_data')
+def get_json_data():
+    # Load the chat logs without modifying the load_logs function
+    df = load_logs()
+    
+    # Filter the DataFrame to include only rows where event is 'feedback'
+    feedback_df = df[(df['event'] == 'feedback') & df['feedback'].notnull()]
+    feedback_df['addressed'].fillna(False, inplace=True)
+    
+    # Select only relevant columns
+    json_data = feedback_df[['user_ip', 'feedback', 'timestamp', 'addressed']].to_dict(orient='records')
+    print(feedback_df)
+    
+    return jsonify(json_data)
 
 @app.route('/', methods=['GET', 'POST'])
 def home():

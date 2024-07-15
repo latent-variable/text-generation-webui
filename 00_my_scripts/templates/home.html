@@ -2,6 +2,7 @@
 <html>
 <head>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
 </head>
 <body>
     <div>
@@ -17,6 +18,14 @@
             </select>
         </form>
     </div>
+
     {{ div|safe }}
+
+    <div class="table-container">
+        <div class="json-table-container"></div>
+    </div>
+    <script src="{{ url_for('static', filename='js/home.js') }}"></script>
+
+
 </body>
 </html>
