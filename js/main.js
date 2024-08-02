@@ -218,7 +218,6 @@ function doSyntaxHighlighting() {
           { left: "\\[", right: "\\]", display: true },
         ],
       });
-
     });
 
     observer.observe(targetElement, config);
@@ -461,7 +460,12 @@ function updateCssProperties() {
 
     // Adjust scrollTop based on input height change
     if (chatInputHeight !== currentChatInputHeight) {
-      chatContainer.scrollTop += chatInputHeight - currentChatInputHeight;
+      if (!isScrolled && chatInputHeight < currentChatInputHeight) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      } else {
+        chatContainer.scrollTop += chatInputHeight - currentChatInputHeight;
+      }
+
       currentChatInputHeight = chatInputHeight;
     }
   }

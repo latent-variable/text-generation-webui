@@ -7,6 +7,7 @@ from PIL import Image
 
 from modules import chat, shared, ui, utils
 from modules.html_generator import chat_html_wrapper
+from modules.text_generation import stop_everything_event
 from modules.utils import gradio
 
 inputs = ('Chat input', 'interface_state')
@@ -84,13 +85,13 @@ def create_ui():
                     shared.gradio['start_with'] = gr.Textbox(label='Start reply with', placeholder='Sure thing!', value=shared.settings['start_with'], elem_classes=['add_scrollbar'])
 
                 with gr.Row():
-                    shared.gradio['mode'] = gr.Radio(choices=['chat', 'chat-instruct', 'instruct'], label='Mode', info='Defines how the chat prompt is generated. In instruct and chat-instruct modes, the instruction template Parameters > Instruction template is used.', elem_id='chat-mode')
+                    shared.gradio['mode'] = gr.Radio(choices=['chat', 'chat-instruct', 'instruct'], value=shared.settings['mode'] if shared.settings['mode'] in ['chat', 'chat-instruct'] else None, label='Mode', info='Defines how the chat prompt is generated. In instruct and chat-instruct modes, the instruction template Parameters > Instruction template is used.', elem_id='chat-mode')
 
                 with gr.Row():
                     shared.gradio['chat_style'] = gr.Dropdown(choices=utils.get_available_chat_styles(), label='Chat style', value=shared.settings['chat_style'], visible=shared.settings['mode'] != 'instruct')
 
                 with gr.Row():
-                    shared.gradio['chat-instruct_command'] = gr.Textbox(value=shared.settings['chat-instruct_command'], lines=12, label='Command for chat-instruct mode', info='<|character|> and <|prompt|> get replaced with the bot name and the regular chat prompt respectively.', visible=False, elem_classes=['add_scrollbar'])
+                    shared.gradio['chat-instruct_command'] = gr.Textbox(value=shared.settings['chat-instruct_command'], lines=12, label='Command for chat-instruct mode', info='<|character|> and <|prompt|> get replaced with the bot name and the regular chat prompt respectively.', visible=shared.settings['mode'] == 'chat-instruct', elem_classes=['add_scrollbar'])
 
 
 def create_chat_settings_ui():
@@ -221,8 +222,8 @@ def create_event_handlers():
         chat.handle_remove_last_click, gradio('interface_state'), gradio('history', 'display', 'textbox'), show_progress=False)
 
     shared.gradio['Stop'].click(
-        ui.gather_interface_values, gradio(shared.input_elements), gradio('interface_state')).then(
-        chat.handle_stop_click, gradio('interface_state'), gradio('display'), show_progress=False)
+        stop_everything_event, None, None, queue=False).then(
+        chat.redraw_html, gradio(reload_arr), gradio('display'), show_progress=False)
 
     if not shared.args.multi_user:
         shared.gradio['unique_id'].select(

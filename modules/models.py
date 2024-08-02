@@ -75,7 +75,6 @@ def load_model(model_name, loader=None):
         'llamacpp_HF': llamacpp_HF_loader,
         'ExLlamav2': ExLlamav2_loader,
         'ExLlamav2_HF': ExLlamav2_HF_loader,
-        'AutoAWQ': AutoAWQ_loader,
         'HQQ': HQQ_loader,
         'TensorRT-LLM': TensorRT_LLM_loader,
     }
@@ -292,24 +291,6 @@ def llamacpp_HF_loader(model_name):
     return model
 
 
-def AutoAWQ_loader(model_name):
-    from awq import AutoAWQForCausalLM
-
-    model_dir = Path(f'{shared.args.model_dir}/{model_name}')
-
-    model = AutoAWQForCausalLM.from_quantized(
-        quant_path=model_dir,
-        max_new_tokens=shared.args.max_seq_len,
-        trust_remote_code=shared.args.trust_remote_code,
-        fuse_layers=not shared.args.no_inject_fused_attention,
-        max_memory=get_max_memory_dict(),
-        batch_size=1,
-        safetensors=any(model_dir.glob('*.safetensors')),
-    )
-
-    return model
-
-
 def AutoGPTQ_loader(model_name):
     import modules.AutoGPTQ_loader
 
@@ -387,13 +368,14 @@ def clear_torch_cache():
             torch.cuda.empty_cache()
 
 
-def unload_model():
+def unload_model(keep_model_name=False):
     shared.model = shared.tokenizer = None
-    shared.previous_model_name = shared.model_name
-    shared.model_name = 'None'
     shared.lora_names = []
     shared.model_dirty_from_training = False
     clear_torch_cache()
+
+    if not keep_model_name:
+        shared.model_name = 'None'
 
 
 def reload_model():
@@ -412,7 +394,7 @@ def unload_model_if_idle():
             if time.time() - last_generation_time > shared.args.idle_timeout * 60:
                 if shared.model is not None:
                     logger.info("Unloading the model for inactivity.")
-                    unload_model()
+                    unload_model(keep_model_name=True)
         finally:
             shared.generation_lock.release()
 
