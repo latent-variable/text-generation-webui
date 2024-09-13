@@ -51,6 +51,7 @@ pre_prompt_file = 'pre-prompt.json'
 current_task = 'transcribe'
 
 
+
 def save_pre_prompt_to_file():
     global pre_prompt_words,  pre_prompt_file
     with open(pre_prompt_file, 'w') as file:
@@ -67,7 +68,43 @@ load_pre_prompt_from_file()
 
 # Create a transcribers
 transcriber_large = whisperx.load_model('large-v3', device='cuda', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
-transcriber_small=  transcriber_large #whisperx.load_model("base.en", device='cuda', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
+transcriber_small = whisperx.load_model("base.en", device='cuda', asr_options = {'initial_prompt': ', '.join(pre_prompt_words)})
+
+#enter audio
+def transcribe_and_update(new_chunk):
+    global text_stream
+
+    sample_rate, audio_chunk = new_chunk
+    executor.submit(transcribe, sample_rate, audio_chunk)
+    text = ' '.join(text_stream)
+    return text
+
+def transcribe(sample_rate, audio_chunk):
+    global audio_stream, max_duration
+    
+    audio_stream = np.array(audio_chunk) if audio_stream.size == 0 else np.concatenate([audio_stream,audio_chunk])
+    stream = np.array(audio_stream)
+    
+    # if the stream is silent reset steam
+    if np.sum(np.abs(stream)) == 0 or is_silence(stream):
+        audio_stream = np.array([])
+        return 
+    
+    # if only the last chunk is silent caLL large transcriber
+    if np.sum(np.abs(audio_chunk)) == 0 or is_silence(audio_chunk):
+        call_large_transcriber(sample_rate)
+        return
+    
+    if not vad_filter(audio_chunk, sample_rate):
+        call_large_transcriber(sample_rate)
+        return
+
+    if (len(stream) / sample_rate) > max_duration:
+        call_large_transcriber(sample_rate)
+    elif (len(stream) / sample_rate) <= (max_duration * 0.80):
+        transcription_queue.put(('small', sample_rate))
+        
+
 
 
 def calculate_n_fft(time_duration_ms, sample_rate):
@@ -79,7 +116,7 @@ def calculate_n_fft(time_duration_ms, sample_rate):
 def reduce_noise_on_file(y, sr):
     # perform noise reduction
     time_duration_ms = 12  # milliseconds   
-    n_fft = calculate_n_fft(time_duration_ms, sr)
+    n_fft = calculate_n_fft(time_duration_ms, sr)         #this is a problem function.
     # perform noise reduction
     reduced_noise = nr.reduce_noise(y=y, sr=sr, stationary=False, thresh_n_mult_nonstationary=1.5,
                                     time_constant_s=1.0,  sigmoid_slope_nonstationary=2.0,  n_fft=n_fft, device='cuda')
@@ -140,7 +177,7 @@ def call_large_transcriber(sr):
     size_samples = min_duration * sr
     if len(audio_stream) > size_samples:
         transcription_queue.put(('large', sr))
-            
+
 
 def transcribe_large_chunk(timestamp, stream, index, sr):
     global text_stream, audio_stream, pre_prompt_words, LANGUAGES, whisper_language, current_task
@@ -260,39 +297,7 @@ def reverse_format_audio_stream(y):
     
     return y
 
-def transcribe(sr, y):
-    global audio_stream, max_duration
-    
-    audio_stream = np.concatenate([audio_stream, y])
-    stream = np.array(audio_stream)
-    
-    # if the stream is silent reset steam
-    if np.sum(np.abs(stream)) == 0 or is_silence(stream):
-        audio_stream = np.array([])
-        return 
-    
-    # if only the last chunk is silent caLL large transcriber
-    if np.sum(np.abs(y)) == 0 or is_silence(y):
-        call_large_transcriber(sr)
-        return
-    
-    if not vad_filter(y, sr):
-        call_large_transcriber(sr)
-        return
 
-    if (len(stream) / sr) > max_duration:
-        call_large_transcriber(sr)
-    elif (len(stream) / sr) <= (max_duration * 0.80):
-        transcription_queue.put(('small', sr))
-        
-
-def transcribe_and_update(new_chunk):
-    global text_stream
-
-    sr, y = new_chunk
-    executor.submit(transcribe, sr, y)
-    text = ' '.join(text_stream)
-    return text
 
 def clear_text():
     global text_stream, transcript_index
@@ -371,3 +376,22 @@ def ui():
 if __name__ == "__main__":
     demo = ui()
     demo.launch(server_port=7888, inbrowser=True)
+
+
+
+#chase fixes that i can do
+#fix fft function
+#better merging of text streams
+#text stream merging
+#better audio buffer management. audio_stream var
+#VAD (Noise activity detection) should be performed first before doing anything computationally expensive. (like noise reduction)
+#make the audio processing even more parralellizable. Break VAD and noise reduction into parralelizable chunks
+#priority queue
+#parallelize AudioSegment
+
+#minor changes
+#dynamic audio threshold for VAD
+#confidence scores
+#audio quality metrics
+
+#reaaally improve error handling and logging. include hardware monitoring logging too in order to see the workload
