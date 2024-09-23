@@ -66,6 +66,7 @@ diffusers
 langchain
 langchain-community
 python3-saml
+pytube
 
 # Confluence
 atlassian-python-api
