@@ -53,6 +53,10 @@ wandb
 /Dockerfile
 *.env
 
+# open-webui related things
+/pipelines
+/00_my_data
+
 auth_token.txt
 *.wav
 *chat_log.json
