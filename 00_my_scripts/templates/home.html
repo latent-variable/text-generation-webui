@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <div>
+        <form method="post" action="/">
+            <select name="timeframe" onchange="this.form.submit()">
+                <option value="all" {% if timeframe == 'all' %} selected {% endif %}>All-time</option>
+                <option value="1day" {% if timeframe == '1day' %} selected {% endif %}>1 Day</option>
+                <option value="1week" {% if timeframe == '1week' %} selected {% endif %}>1 Week</option>
+                <option value="1month" {% if timeframe == '1month' %} selected {% endif %}>1 Month</option>
+                <option value="3month" {% if timeframe == '3month' %} selected {% endif %}>3 Month</option>
+                <option value="6month" {% if timeframe == '6month' %} selected {% endif %}>6 Month</option>
+                <option value="1year" {% if timeframe == '1year' %} selected {% endif %}>1 Year</option>             
+            </select>
+        </form>
+    </div>
+    {{ div|safe }}
+</body>
+</html>

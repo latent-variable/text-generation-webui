@@ -1,7 +1,7 @@
 /cache
 /characters
 /css
-/extensions
+
 /grammars
 /installer_files
 /logs
@@ -13,6 +13,7 @@
 /softprompts
 /torch-dumps
 /training/datasets
+/00_my_scripts/chatbot.log
 
 /CMD_FLAGS.txt
 /img_bot*
@@ -21,6 +22,9 @@
 /notification.mp3
 /settings*.json
 /settings*.yaml
+/pre-prompt.json
+/transcriptions.txt
+/audio
 
 .chroma
 .DS_Store
@@ -47,4 +51,18 @@ wandb
 /docker-compose.yaml
 /docker-compose.yml
 /Dockerfile
-.env
+*.env
+
+# open-webui related things
+/pipelines
+/00_my_data
+*.webui_secret_key
+
+auth_token.txt
+*.wav
+*chat_log.json
+*.crt 
+*.csr 
+*.key
+*.srl
+*web.config

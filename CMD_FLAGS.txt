@@ -1,3 +1,4 @@
 # Only used by the one-click installer.
-# Example:
-# --listen --api
+# --api --listen --auto-launch --multi-user  --extensions superboogav3  custom_ui --model bartowski_Meta-Llama-3-8B-Instruct-exl2_8_0
+--api --api-port 5000 --listen --auto-launch --extensions superboogav3
+

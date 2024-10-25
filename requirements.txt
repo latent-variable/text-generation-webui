@@ -3,7 +3,7 @@ bitsandbytes==0.44.*
 colorama
 datasets
 einops
-fastapi==0.112.4
+fastapi
 gradio==4.26.*
 jinja2==3.1.4
 markdown
@@ -13,7 +13,7 @@ pandas
 peft==0.12.*
 Pillow>=9.5.0
 psutil
-pydantic==2.8.2
+pydantic>=2.8.2
 pyyaml
 requests
 rich
@@ -24,6 +24,72 @@ tensorboard
 transformers==4.46.*
 tqdm
 wandb
+
+
+# My additions 
+speechbrain
+dash 
+jupyter
+opencv-python 
+pydub
+librosa
+setuptools>=65
+nltk
+openai-whisper
+pyannote.audio==3.1.1
+ruamel.yaml==0.17.28
+noisereduce
+matplotlib
+scikit-learn
+pymap3d
+pyinstaller
+pymongo
+h5py
+webrtcvad
+SpeechRecognition
+ffmpeg-python
+mermaid-python
+whisperX @ git+https://github.com/latent-variable/whisperX.git
+faster-whisper @ git+https://github.com/SYSTRAN/faster-whisper.git
+guidance
+schedule
+tabpy
+markdown
+plotly
+spyder
+txtai
+diffusers
+langchain
+langchain-community
+python3-saml
+pytube
+
+#open-webui
+open-webui
+vanna[chromadb,ollama,postgres]
+
+
+# Confluence
+atlassian-python-api
+lxml
+markdownify
+pytesseract  
+reportlab 
+svglib
+reportlab[renderPM]
+reportlab[pycairo]
+pdf2image
+docx2txt
+
+# Additional requirements
+folium
+pyqt5
+pyqt5designer
+pyqtwebengine
+flask
+geopandas
+streamlit
+pygame
 
 # API
 SpeechRecognition==3.10.0
