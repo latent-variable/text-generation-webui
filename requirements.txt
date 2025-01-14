@@ -3,7 +3,7 @@ bitsandbytes==0.45.*
 colorama
 datasets
 einops
-fastapi==0.112.4
+fastapi
 gradio==4.37.*
 jinja2==3.1.5
 markdown
@@ -68,7 +68,8 @@ pytube
 open-webui
 vanna[chromadb,ollama,postgres]
 tableauserverclient
-
+llama-index
+llama-index-llms-ollama
 
 # Confluence
 atlassian-python-api
