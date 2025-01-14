@@ -23,7 +23,7 @@ class MyVanna(ChromaDB_VectorStore, Ollama):
 class Pipeline:
     class Valves(BaseModel):
         NAME: str
-        FILE_INPUT: Optional[Path]
+        FILE_INPUT: str
         MODEL: str
         OLLAMA_BASE_URL: str
         pass
@@ -33,7 +33,7 @@ class Pipeline:
             **{
                 "NAME": "Postgres Vanna SQL Pipeline",
                 "FILE_INPUT": "/media/training.json",
-                "MODEL": "hey_corona:latest",
+                "MODEL": "llama3.2:3b",
                 "OLLAMA_BASE_URL": os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
             }
         )
@@ -59,6 +59,8 @@ class Pipeline:
         self.execute_training()
         self.is_trained = True  # Update the flag after training
         self.name = self.valves.NAME
+        self.model = self.valves.MODEL
+        
 
     def connect_vanna_pg(self):
         if self.vn is not None:
@@ -66,7 +68,7 @@ class Pipeline:
             return
         try:
             self.vn = MyVanna(config={
-                'model': 'hey_corona:latest',
+                'model': self.valves.MODEL ,
                 'ollama_host': 'http://host.docker.internal:11434',
                 'allow_llm_to_see_data': True
             })

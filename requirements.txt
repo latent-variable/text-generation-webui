@@ -50,7 +50,7 @@ SpeechRecognition
 ffmpeg-python
 mermaid-python
 whisperX @ git+https://github.com/latent-variable/whisperX.git
-faster-whisper @ git+https://github.com/SYSTRAN/faster-whisper.git
+# faster-whisper @ git+https://github.com/SYSTRAN/faster-whisper.git
 guidance
 schedule
 tabpy
@@ -67,6 +67,7 @@ pytube
 #open-webui
 open-webui
 vanna[chromadb,ollama,postgres]
+tableauserverclient
 
 
 # Confluence
