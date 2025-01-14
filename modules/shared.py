@@ -46,6 +46,7 @@ settings = {
     'max_tokens_second': 0,
     'max_updates_second': 0,
     'prompt_lookup_num_tokens': 0,
+    'static_cache': False,
     'custom_stopping_strings': '',
     'custom_token_bans': '',
     'auto_max_new_tokens': False,
@@ -81,12 +82,11 @@ group.add_argument('--model-menu', action='store_true', help='Show a model menu 
 group.add_argument('--settings', type=str, help='Load the default interface settings from this yaml file. See settings-template.yaml for an example. If you create a file called settings.yaml, this file will be loaded by default without the need to use the --settings flag.')
 group.add_argument('--extensions', type=str, nargs='+', help='The list of extensions to load. If you want to load more than one extension, write the names separated by spaces.')
 group.add_argument('--verbose', action='store_true', help='Print the prompts to the terminal.')
-group.add_argument('--chat-buttons', action='store_true', help='Show buttons on the chat tab instead of a hover menu.')
 group.add_argument('--idle-timeout', type=int, default=0, help='Unload model after this many minutes of inactivity. It will be automatically reloaded when you try to use it again.')
 
 # Model loader
 group = parser.add_argument_group('Model loader')
-group.add_argument('--loader', type=str, help='Choose the model loader manually, otherwise, it will get autodetected. Valid options: Transformers, llama.cpp, llamacpp_HF, ExLlamav2_HF, ExLlamav2, AutoGPTQ.')
+group.add_argument('--loader', type=str, help='Choose the model loader manually, otherwise, it will get autodetected. Valid options: Transformers, llama.cpp, llamacpp_HF, ExLlamav2_HF, ExLlamav2.')
 
 # Transformers/Accelerate
 group = parser.add_argument_group('Transformers/Accelerate')
@@ -104,6 +104,7 @@ group.add_argument('--force-safetensors', action='store_true', help='Set use_saf
 group.add_argument('--no_use_fast', action='store_true', help='Set use_fast=False while loading the tokenizer (it\'s True by default). Use this if you have any problems related to use_fast.')
 group.add_argument('--use_flash_attention_2', action='store_true', help='Set use_flash_attention_2=True while loading the model.')
 group.add_argument('--use_eager_attention', action='store_true', help='Set attn_implementation= eager while loading the model.')
+group.add_argument('--torch-compile', action='store_true', help='Compile the model with torch.compile for improved performance.')
 
 # bitsandbytes 4-bit
 group = parser.add_argument_group('bitsandbytes 4-bit')
@@ -143,21 +144,8 @@ group.add_argument('--cfg-cache', action='store_true', help='ExLlamav2_HF: Creat
 group.add_argument('--no_flash_attn', action='store_true', help='Force flash-attention to not be used.')
 group.add_argument('--no_xformers', action='store_true', help='Force xformers to not be used.')
 group.add_argument('--no_sdpa', action='store_true', help='Force Torch SDPA to not be used.')
-group.add_argument('--cache_8bit', action='store_true', help='Use 8-bit cache to save VRAM.')
-group.add_argument('--cache_4bit', action='store_true', help='Use Q4 cache to save VRAM.')
 group.add_argument('--num_experts_per_token', type=int, default=2, help='Number of experts to use for generation. Applies to MoE models like Mixtral.')
 group.add_argument('--enable_tp', action='store_true', help='Enable Tensor Parallelism (TP) in ExLlamaV2.')
-
-# AutoGPTQ
-group = parser.add_argument_group('AutoGPTQ')
-group.add_argument('--triton', action='store_true', help='Use triton.')
-group.add_argument('--no_inject_fused_mlp', action='store_true', help='Triton mode only: disable the use of fused MLP, which will use less VRAM at the cost of slower inference.')
-group.add_argument('--no_use_cuda_fp16', action='store_true', help='This can make models faster on some systems.')
-group.add_argument('--desc_act', action='store_true', help='For models that do not have a quantize_config.json, this parameter is used to define whether to set desc_act or not in BaseQuantizeConfig.')
-group.add_argument('--disable_exllama', action='store_true', help='Disable ExLlama kernel, which can improve inference speed on some systems.')
-group.add_argument('--disable_exllamav2', action='store_true', help='Disable ExLlamav2 kernel.')
-group.add_argument('--wbits', type=int, default=0, help='Load a pre-quantized model with specified precision in bits. 2, 3, 4 and 8 are supported.')
-group.add_argument('--groupsize', type=int, default=-1, help='Group size.')
 
 # HQQ
 group = parser.add_argument_group('HQQ')
@@ -166,6 +154,10 @@ group.add_argument('--hqq-backend', type=str, default='PYTORCH_COMPILE', help='B
 # TensorRT-LLM
 group = parser.add_argument_group('TensorRT-LLM')
 group.add_argument('--cpp-runner', action='store_true', help='Use the ModelRunnerCpp runner, which is faster than the default ModelRunner but doesn\'t support streaming yet.')
+
+# Cache
+group = parser.add_argument_group('Cache')
+group.add_argument('--cache_type', type=str, default='fp16', help='KV cache type; valid options: llama.cpp - fp16, q8_0, q4_0; ExLlamaV2 - fp16, fp8, q8, q6, q4.')
 
 # DeepSpeed
 group = parser.add_argument_group('DeepSpeed')
@@ -191,6 +183,7 @@ group.add_argument('--gradio-auth-path', type=str, help='Set the Gradio authenti
 group.add_argument('--ssl-keyfile', type=str, help='The path to the SSL certificate key file.', default=None)
 group.add_argument('--ssl-certfile', type=str, help='The path to the SSL certificate cert file.', default=None)
 group.add_argument('--subpath', type=str, help='Customize the subpath for gradio, use with reverse proxy')
+group.add_argument('--old-colors', action='store_true', help='Use the legacy Gradio colors, before the December/2024 update.')
 
 # API
 group = parser.add_argument_group('API')
@@ -200,6 +193,8 @@ group.add_argument('--public-api-id', type=str, help='Tunnel ID for named Cloudf
 group.add_argument('--api-port', type=int, default=5000, help='The listening port for the API.')
 group.add_argument('--api-key', type=str, default='', help='API authentication key.')
 group.add_argument('--admin-key', type=str, default='', help='API authentication key for admin tasks like loading and unloading models. If not set, will be the same as --api-key.')
+group.add_argument('--api-enable-ipv6', action='store_true', help='Enable IPv6 for the API')
+group.add_argument('--api-disable-ipv4', action='store_true', help='Disable IPv4 for the API')
 group.add_argument('--nowebui', action='store_true', help='Do not launch the Gradio UI. Useful for launching the API in standalone mode.')
 
 # Multimodal
@@ -213,6 +208,17 @@ group.add_argument('--pre_layer', type=int, nargs='+', help='DEPRECATED')
 group.add_argument('--checkpoint', type=str, help='DEPRECATED')
 group.add_argument('--monkey-patch', action='store_true', help='DEPRECATED')
 group.add_argument('--no_inject_fused_attention', action='store_true', help='DEPRECATED')
+group.add_argument('--cache_4bit', action='store_true', help='DEPRECATED')
+group.add_argument('--cache_8bit', action='store_true', help='DEPRECATED')
+group.add_argument('--chat-buttons', action='store_true', help='DEPRECATED')
+group.add_argument('--triton', action='store_true', help='DEPRECATED')
+group.add_argument('--no_inject_fused_mlp', action='store_true', help='DEPRECATED')
+group.add_argument('--no_use_cuda_fp16', action='store_true', help='DEPRECATED')
+group.add_argument('--desc_act', action='store_true', help='DEPRECATED')
+group.add_argument('--disable_exllama', action='store_true', help='DEPRECATED')
+group.add_argument('--disable_exllamav2', action='store_true', help='DEPRECATED')
+group.add_argument('--wbits', type=int, default=0, help='DEPRECATED')
+group.add_argument('--groupsize', type=int, default=-1, help='DEPRECATED')
 
 args = parser.parse_args()
 args_defaults = parser.parse_args([])
@@ -255,10 +261,6 @@ def fix_loader_name(name):
         return 'llamacpp_HF'
     elif name in ['transformers', 'huggingface', 'hf', 'hugging_face', 'hugging face']:
         return 'Transformers'
-    elif name in ['autogptq', 'auto-gptq', 'auto_gptq', 'auto gptq']:
-        return 'AutoGPTQ'
-    elif name in ['exllama', 'ex-llama', 'ex_llama', 'exlama']:
-        return 'ExLlama'
     elif name in ['exllamav2', 'exllama-v2', 'ex_llama-v2', 'exlamav2', 'exlama-v2', 'exllama2', 'exllama-2']:
         return 'ExLlamav2'
     elif name in ['exllamav2-hf', 'exllamav2_hf', 'exllama-v2-hf', 'exllama_v2_hf', 'exllama-v2_hf', 'exllama2-hf', 'exllama2_hf', 'exllama-2-hf', 'exllama_2_hf', 'exllama-2_hf']:
@@ -267,6 +269,58 @@ def fix_loader_name(name):
         return 'HQQ'
     elif name in ['tensorrt', 'tensorrtllm', 'tensorrt_llm', 'tensorrt-llm', 'tensort', 'tensortllm']:
         return 'TensorRT-LLM'
+
+
+def transform_legacy_kv_cache_options(opts):
+    # Handle both argparse.Namespace and dict here
+    def get(key):
+        return opts.get(key) if isinstance(opts, dict) else getattr(opts, key, None)
+
+    def set(key, value):
+        if isinstance(opts, dict):
+            opts[key] = value
+        else:
+            setattr(opts, key, value)
+
+    def del_key(key, fallback_set):
+        # only remove from user dict, can't delete from argparse.Namespace
+        if type(opts) is dict:
+            if key in opts:
+                del opts[key]
+        else:
+            setattr(opts, key, fallback_set)
+
+    # Retrieve values
+    loader = get('loader')
+    cache_8bit = get('cache_8bit')
+    cache_4bit = get('cache_4bit')
+
+    # Determine cache type based on loader or legacy flags
+    if cache_8bit or cache_4bit:
+        if not loader:
+            # Legacy behavior: prefer 8-bit over 4-bit to minimize breakage
+            if cache_8bit:
+                set('cache_type', 'fp8')
+            elif cache_4bit:
+                set('cache_type', 'q4')
+        elif loader.lower() in ['exllamav2', 'exllamav2_hf']:
+            # ExLlamaV2 loader-specific cache type
+            if cache_8bit:
+                set('cache_type', 'fp8')
+            elif cache_4bit:
+                set('cache_type', 'q4')
+        elif loader.lower() in ['llama.cpp', 'llamacpp_hf']:
+            # Llama.cpp loader-specific cache type
+            if cache_4bit:
+                set('cache_type', 'q4_0')
+            elif cache_8bit:
+                set('cache_type', 'q8_0')
+
+    # Clean up legacy keys
+    del_key('cache_4bit', False)
+    del_key('cache_8bit', False)
+
+    return opts
 
 
 def add_extension(name, last=False):
@@ -297,10 +351,14 @@ def load_user_config():
     else:
         user_config = {}
 
+    for model_name in user_config:
+        user_config[model_name] = transform_legacy_kv_cache_options(user_config[model_name])
+
     return user_config
 
 
 args.loader = fix_loader_name(args.loader)
+args = transform_legacy_kv_cache_options(args)
 
 # Activate the multimodal extension
 if args.multimodal_pipeline is not None:
