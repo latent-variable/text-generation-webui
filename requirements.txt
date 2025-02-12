@@ -92,6 +92,7 @@ flask
 geopandas
 streamlit
 pygame
+pyaudio
 
 # API
 SpeechRecognition==3.10.0
