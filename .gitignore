@@ -1,14 +1,8 @@
-/cache
-/characters
 /css
 
 /grammars
+/extensions
 /installer_files
-/logs
-/loras
-/models
-/presets
-/prompts
 /repositories
 /softprompts
 /torch-dumps
@@ -25,6 +19,7 @@
 /pre-prompt.json
 /transcriptions.txt
 /audio
+/user_data
 
 .chroma
 .DS_Store
